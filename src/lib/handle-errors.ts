@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import multer from "multer";
 import { Prisma } from "../generated/prisma/client";
 import { AppError } from "./errors";
+import { getEnv } from "./get-env";
 
 interface IHandleErrors {
   res: Response;
@@ -60,6 +61,6 @@ export const handleErrors = function ({ res, error }: IHandleErrors) {
   console.error("Unhandled error:", error);
   return res.status(500).json({
     message: typeof error === "string" ? error : "Internal Server Error",
-    error: process.env.NODE_ENV === "development" ? error : undefined,
+    error: getEnv("NODE_ENV") === "development" ? error : undefined,
   });
 };

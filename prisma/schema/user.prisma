@@ -31,6 +31,7 @@ model User {
   isLocked              Boolean            @default(false)
   lastLogin             DateTime           @default(now())
   account_status        AccountStatus      @default(ACTIVE)
+  has_onboarded Boolean @default(false)
 
   professionId   String?
   profession     Profession? @relation(fields: [professionId], references: [id])

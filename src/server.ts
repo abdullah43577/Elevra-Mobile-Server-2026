@@ -1,7 +1,9 @@
 import express from "express";
 import { configureApp } from "./config";
+import { registerRoutes } from "./routes";
+import { getEnv } from "./lib/get-env";
 
-const { PORT } = process.env;
+const PORT = getEnv("PORT");
 
 if (!PORT) {
   console.error("❌ PORT environment variable is not set!");
@@ -11,28 +13,11 @@ if (!PORT) {
 const app = express();
 
 configureApp(app);
+registerRoutes(app);
 
 const server = app.listen(PORT, async () => {
   try {
     console.log(`✅ Server started on http://localhost:${PORT}`);
-
-    // // Initialize email system first
-    // try {
-    //   await initializeEmailSystem();
-    // } catch (emailError) {
-    //   console.error("❌ Email system initialization error:", emailError);
-    //   console.warn("⚠️  Continuing without email functionality. Server will still work for non-email endpoints.");
-    // }
-
-    // // Initialize cron jobs
-    // try {
-    //   await initializeCronJobs();
-    // } catch (cronError) {
-    //   console.error("❌ Cron jobs initialization error:", cronError);
-    //   console.warn("⚠️  Continuing without cron jobs. Server is still running.");
-    // }
-
-    console.log("✅ Server initialization complete!");
   } catch (error) {
     console.error("❌ Error starting server:", error);
     console.error("Stack trace:", error instanceof Error ? error.stack : "No stack trace");

@@ -1,10 +1,10 @@
 import "dotenv/config";
-const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET, GOOGLE_VERIFICATION_TOKEN } = process.env;
+const { ACCESS_TOKEN_SECRET, REFRESH_TOKEN_SECRET, GOOGLE_VERIFICATION_TOKEN } = getEnv(["ACCESS_TOKEN_SECRET", "REFRESH_TOKEN_SECRET", "GOOGLE_VERIFICATION_TOKEN"]);
 import jwt, { type Secret } from "jsonwebtoken";
+import { getEnv } from "./get-env";
 
 type Payload = {
   id: string;
-  role: string;
 };
 
 export const generateAccessToken = (dataObj: Payload) => {
