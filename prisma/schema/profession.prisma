@@ -1,0 +1,6 @@
+model Profession {
+  id       String  @id @default(cuid())
+  name     String  @unique // Engineering, Design, Marketing, etc.
+  category String? // for grouping
+  users    User[]
+}

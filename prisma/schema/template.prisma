@@ -1,0 +1,8 @@
+model Template {
+  id       String  @id @default(cuid())
+  name     String
+  category String  // Minimal, Executive, Creative, Corporate, Tech, Graduate
+  previewUrl String
+  isPremium Boolean @default(false)
+  resumes  Resume[]
+}
