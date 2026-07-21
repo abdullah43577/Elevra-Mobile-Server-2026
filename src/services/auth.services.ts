@@ -4,7 +4,6 @@ import { getEnv } from "../lib/get-env";
 import { comparePassword, hashPassword } from "../lib/hash-password";
 import { UserRepository } from "../repositories/user.repository";
 import type { SignInFormValues, SignUpFormValues } from "../schemas/auth";
-import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { redis } from "../lib/redis-connection";
 import { MailService } from "./mail.service";
@@ -24,8 +23,9 @@ export class AuthService {
     const hashedPassword = await hashPassword(data.password);
 
     const user = await this.userRepo.createUser({
-      ...(data as any),
+      ...data,
       password: hashedPassword,
+      has_onboarded: true,
     });
 
     const otp = AuthService.generateOTP();
@@ -159,5 +159,15 @@ export class AuthService {
     const { password, ...rest } = user;
 
     return rest;
+  }
+
+  async generateNewToken(userId: string) {
+    const user = await this.userRepo.findById(userId);
+    if (!user) throw new NotFoundError("User not found");
+
+    const accessToken = generateAccessToken({ id: userId });
+    const refreshToken = generateRefreshToken({ id: userId });
+
+    return { accessToken, refreshToken };
   }
 }

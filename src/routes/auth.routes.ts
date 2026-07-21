@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { AuthController } from "../controllers/auth.controller";
+import { validateRefreshToken } from "../lib/validate-token";
 
 const router = Router();
 const authController = new AuthController();
@@ -11,5 +12,6 @@ router.post("/resend-verification-otp", authController.resendVerificationOtp.bin
 router.post("/signin", authController.loginUser.bind(authController));
 router.post("/forgot-password", authController.forgotPassword.bind(authController));
 router.get("/profile", authController.getProfile.bind(authController));
+router.post("/token", validateRefreshToken, authController.generateNewToken.bind(authController));
 
 export { router as authRouter };

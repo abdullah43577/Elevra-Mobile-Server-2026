@@ -89,4 +89,15 @@ export class AuthController {
       handleErrors({ res, error });
     }
   }
+
+  async generateNewToken(req: IUserRequest, res: Response) {
+    try {
+      const { userId } = req;
+      const tokens = await this.authService.generateNewToken(userId!);
+
+      res.status(200).json({ message: "Token refreshed", data: tokens });
+    } catch (error) {
+      handleErrors({ res, error });
+    }
+  }
 }
