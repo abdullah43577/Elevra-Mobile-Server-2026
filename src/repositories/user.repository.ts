@@ -1,4 +1,4 @@
-import type { Prisma } from "../generated/prisma/client";
+import type { $Enums, Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
 
 export class UserRepository {
@@ -23,6 +23,14 @@ export class UserRepository {
     return prisma.user.update({
       where: { id },
       data,
+    });
+  }
+
+  async upsertUserSettings(userId: string, data: Partial<{ theme: $Enums.Theme; notifications: boolean; subscriptionTier: string }>) {
+    return prisma.userSettings.upsert({
+      where: { userId },
+      update: data,
+      create: { userId, ...data },
     });
   }
 

@@ -1,8 +1,10 @@
 import type { Application, Request, Response } from "express";
 import { authRouter } from "./auth.routes";
+import { professionRouter } from "./profession.routes";
 
 export const registerRoutes = (app: Application) => {
   app.use("/v1/auth", authRouter);
+  app.use("/v1/professions", professionRouter);
 
   // 404 fallback
   app.use((req: Request, res: Response) => {

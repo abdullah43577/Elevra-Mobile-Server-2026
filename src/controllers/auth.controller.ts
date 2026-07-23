@@ -4,6 +4,7 @@ import type { IUserRequest } from "../interface";
 import { signInSchema, signUpSchema } from "../schemas/auth";
 import { handleErrors } from "../lib/handle-errors";
 import { BadRequestError } from "../lib/errors";
+import type { UpdateProfile, UpdateSettings } from "../schemas/profile";
 
 export class AuthController {
   private authService = new AuthService();
@@ -85,6 +86,31 @@ export class AuthController {
       const result = await this.authService.getProfile(userId as string);
 
       res.status(200).json({ message: "Profile fetched successfully", data: result });
+    } catch (error) {
+      handleErrors({ res, error });
+    }
+  }
+
+  async updateProfile(req: IUserRequest, res: Response) {
+    try {
+      const { userId } = req;
+      const profilePic = req.file;
+
+      const data = req.body as UpdateProfile;
+      const result = await this.authService.updateProfile(userId as string, data, profilePic);
+      res.status(200).json({ message: "Profile updated successfully!", data: result });
+    } catch (error) {
+      handleErrors({ res, error });
+    }
+  }
+
+  async updateProfileSettings(req: IUserRequest, res: Response) {
+    try {
+      const { userId } = req;
+      const data = req.body as UpdateSettings;
+
+      const result = await this.authService.updateProfileSettings(userId as string, data);
+      res.status(200).json({ message: "Profile settings updated successfully!", data: result });
     } catch (error) {
       handleErrors({ res, error });
     }
