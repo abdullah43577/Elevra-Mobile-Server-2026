@@ -70,7 +70,7 @@ export class AuthController {
   async forgotPassword(req: Request, res: Response) {
     try {
       const { email } = req.body;
-      if (!email) return res.status(400).json({ message: "'Email', was not provided in the request body" });
+      if (!email) throw new BadRequestError("'Email', was not provided in the request body");
 
       await this.authService.forgotPassword(email);
 

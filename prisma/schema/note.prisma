@@ -1,11 +1,66 @@
-model Note {
+model Folder {
   id        String   @id @default(cuid())
+  name      String
+  color     String?  // For UI organization
   userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  title     String
-  content   String
-  folder    String?
-  tags      String[]
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  notes     Note[]
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  
+  @@index([userId])
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  notes     NoteTag[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([userId, name])
+  @@index([userId])
+}
+
+model Note {
+  id          String   @id @default(cuid())
+  title       String
+  content     String?  // Rich text or markdown
+  isArchived  Boolean  @default(false)
+  isPinned    Boolean  @default(false)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  folderId    String?
+  folder      Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
+  
+  tags        NoteTag[]
+  
+  // AI-generated summary (stored after processing)
+  aiSummary   String?
+  summaryGeneratedAt DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([folderId])
+  @@index([isArchived])
+  @@index([isPinned])
+}
+
+model NoteTag {
+  id        String @id @default(cuid())
+  noteId    String
+  tagId     String
+  note      Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  tag       Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@unique([noteId, tagId])
 }

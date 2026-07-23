@@ -43,7 +43,9 @@ model User {
 
   // Relations — back-references defined here, foreign keys live in their respective schema files
   resumes         Resume[]
-  notes           Note[]
+    notes         Note[]
+  folders       Folder[]
+  tags          Tag[]
   voiceRecordings VoiceRecording[]
   settings        UserSettings?
 }
