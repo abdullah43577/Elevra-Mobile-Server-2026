@@ -8,9 +8,9 @@ import { folderRouter } from "./notes/folder.routes";
 export const registerRoutes = (app: Application) => {
   app.use("/v1/auth", authRouter);
   app.use("/v1/professions", professionRouter);
-  app.use("/v1/notes/", noteRouter);
-  app.use("/v1/notes/tags", tagRouter);
   app.use("/v1/notes/folders", folderRouter);
+  app.use("/v1/notes/tags", tagRouter);
+  app.use("/v1/notes/", noteRouter);
 
   // 404 fallback
   app.use((req: Request, res: Response) => {

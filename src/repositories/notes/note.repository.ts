@@ -53,7 +53,7 @@ export class NoteRepository {
       data: {
         ...noteData,
         ...(tagIds?.length && {
-          noteTags: {
+          tags: {
             create: tagIds.map(tagId => ({
               tagId,
             })),
