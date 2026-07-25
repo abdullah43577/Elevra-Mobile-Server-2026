@@ -10,8 +10,13 @@ const validateAccessToken = function (req: IUserRequest, res: Response, next: Ne
   let token = req.headers["authorization"]?.split(" ")[1];
 
   // If token is not found in headers, try to find it in cookies
-  if (!token && req.cookies) {
-    token = req.cookies["session_id"];
+  // if (!token && req.cookies) {
+  //   token = req.cookies["session_id"];
+  // }
+
+  // If token is not found in headers, try to find it in query
+  if (!token && req.query) {
+    token = req.query.token as string;
   }
 
   if (!token) throw new UnauthorizedError("Access Denied, No token provided!");
@@ -31,9 +36,9 @@ const validateRefreshToken = function (req: IUserRequest, res: Response, next: N
     let refreshToken = req.body.refreshToken;
 
     // if refreshToken is not sent in the body
-    if (!refreshToken) {
-      refreshToken = req.cookies["session_id_ref"];
-    }
+    // if (!refreshToken) {
+    //   refreshToken = req.cookies["session_id_ref"];
+    // }
 
     if (!refreshToken) throw new UnauthorizedError("Access Denied, Refresh token not provided!");
 

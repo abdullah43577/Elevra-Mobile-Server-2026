@@ -3,6 +3,8 @@ import { NoteService } from "../../services/notes/note.service";
 import type { IUserRequest } from "../../interface";
 import { handleErrors } from "../../lib/handle-errors";
 import { createNoteSchema, getNotesQuerySchema, updateNoteSchema } from "../../schemas/notes";
+import { stripHtml } from "../../lib/strip-html";
+import { SSEHelper } from "../../services/sse.service";
 
 export class NoteController {
   private noteService = new NoteService();
@@ -140,15 +142,54 @@ export class NoteController {
     }
   }
 
-  async generateSummary(req: IUserRequest, res: Response) {
+  async generateSummaryStream(req: IUserRequest, res: Response) {
+    const sse = new SSEHelper(res);
+    let isStreaming = true;
+
     try {
       const { userId } = req;
       const { id } = req.params;
 
-      const result = await this.noteService.generateSummary(id as string, userId!);
-      res.status(200).json({ message: "Summary generated successfully", data: result });
-    } catch (error) {
-      handleErrors({ res, error });
+      // Handle client disconnect
+      sse.onDisconnect(() => {
+        isStreaming = false;
+        console.log("Client disconnected from summary stream");
+      });
+
+      // Get the note
+      const note = await this.noteService.getNoteById(id as string, userId!);
+
+      if (!note.content) {
+        sse.sendError("Note has no content to summarize");
+        return;
+      }
+
+      const plainText = stripHtml(note.content);
+
+      if (plainText.length < 10) {
+        sse.sendError("Note content is too short to summarize");
+        return;
+      }
+
+      // Stream the summary from Gemini
+      let fullSummary = "";
+
+      await this.noteService.streamSummary(plainText, (chunk: string) => {
+        if (!isStreaming) return;
+        fullSummary += chunk;
+        sse.sendChunk(chunk, fullSummary);
+      });
+
+      // Save the full summary to the database
+      await this.noteService.saveSummary(id as string, userId!, fullSummary);
+
+      // Send completion signal
+      sse.sendComplete(fullSummary);
+      sse.close();
+    } catch (error: any) {
+      const errorMessage = error.message || "An unknown error occurred";
+      sse.sendError(errorMessage);
+      console.error("Summary generation error:", error);
     }
   }
 }

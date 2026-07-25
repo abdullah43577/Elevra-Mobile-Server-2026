@@ -3,6 +3,7 @@ import { getEnv } from "../lib/get-env";
 
 export class GeminiService {
   private ai: GoogleGenAI;
+  MOCK_MODE = true;
 
   constructor() {
     this.ai = new GoogleGenAI({
@@ -11,25 +12,79 @@ export class GeminiService {
   }
 
   /**
-   * Generate a summary from text content (for Smart Notes AI Summary)
+   * Generate a streaming summary from text content
    */
-  async generateSummary(text: string) {
-    const prompt = `
-      Please provide a concise summary of the following text.
-      Keep it brief and highlight the key points.
-      
-      Text:
-      ${text}
-      
-      Summary:
-    `;
+  async generateSummaryStream(text: string, onChunk: (chunk: string) => void) {
+    if (this.MOCK_MODE) {
+      // Simulate streaming with mock data
+      const mockSummary = "This is a mock summary generated without using the Gemini API. It contains key points from the provided text.";
+      const words = mockSummary.split(" ");
+      for (let i = 0; i < words.length; i++) {
+        onChunk(words[i] + " ");
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate delay
+      }
+      return;
+    }
 
-    const response = await this.ai.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: prompt,
-    });
+    try {
+      const prompt = `
+        Please provide a concise summary of the following text in 2-3 sentences.
+        Focus on the main topic and key takeaways. Keep it brief and actionable.
+        
+        Text:
+        ${text}
+        
+        Summary:
+      `;
 
-    return response.text ?? "";
+      const stream = await this.ai.models.generateContentStream({
+        model: "gemini-2.0-flash",
+        contents: prompt,
+      });
+
+      for await (const chunk of stream) {
+        if (chunk.text) {
+          onChunk(chunk.text);
+        }
+      }
+    } catch (error: any) {
+      // Handle quota exceeded error specifically
+      if (error.message?.includes("quota") || error.message?.includes("rate limit")) {
+        throw new Error("Gemini API quota exceeded. Please try again later or upgrade your plan.");
+      }
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate summary";
+      throw new Error(errorMessage);
+    }
+  }
+
+  /**
+   * Generate a non-streaming summary (fallback)
+   */
+  async generateSummary(text: string): Promise<string> {
+    try {
+      const prompt = `
+        Please provide a concise summary of the following text in 2-3 sentences.
+        Focus on the main topic and key takeaways. Keep it brief and actionable.
+        
+        Text:
+        ${text}
+        
+        Summary:
+      `;
+
+      const response = await this.ai.models.generateContent({
+        model: "gemini-2.0-flash",
+        contents: prompt,
+      });
+
+      return response.text ?? "";
+    } catch (error: any) {
+      if (error.message?.includes("quota") || error.message?.includes("rate limit")) {
+        throw new Error("Gemini API quota exceeded. Please try again later or upgrade your plan.");
+      }
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate summary";
+      throw new Error(errorMessage);
+    }
   }
 
   /**
@@ -46,11 +101,18 @@ export class GeminiService {
    * Generate a chat response (for AI Chat feature)
    */
   async generateChatResponse(userMessage: string, context?: string) {
-    const fullPrompt = context ? `Context: ${context}\n\nUser: ${userMessage}\n\nAssistant:` : `User: ${userMessage}\n\nAssistant:`;
+    const prompt = `
+      You are Elevra, an AI-powered productivity assistant. 
+      Be helpful, concise, and professional in your responses.
+
+      ${context ? `Relevant context: ${context}\n\n` : ""}
+      User: ${userMessage}
+      Assistant:
+    `;
 
     const response = await this.ai.models.generateContent({
       model: "gemini-2.0-flash",
-      contents: fullPrompt,
+      contents: prompt,
     });
 
     return response.text ?? "";
@@ -70,9 +132,9 @@ export class GeminiService {
     const styleInstruction = style ? styleMap[style] : "Improve the clarity and flow.";
 
     const prompt = `
-      Please rewrite the following text.
+      Please rewrite the following text while preserving its core meaning.
       ${styleInstruction}
-      Keep the same meaning but improve the wording.
+      Improve clarity, flow, and readability. Avoid adding new information.
       
       Original text:
       ${text}
@@ -91,7 +153,7 @@ export class GeminiService {
   /**
    * Generate a streaming response (for real-time AI Chat)
    */
-  async generateStreamingResponse(userMessage: string, onChunk: (chunk: string) => void): Promise<void> {
+  async generateStreamingResponse(userMessage: string, onChunk: (chunk: string) => void) {
     const stream = await this.ai.models.generateContentStream({
       model: "gemini-2.0-flash",
       contents: userMessage,
@@ -110,20 +172,21 @@ export class GeminiService {
   async generateResumeContent(jobTitle: string, experience: string, skills: string[]): Promise<{ summary: string; bulletPoints: string[] }> {
     const prompt = `
       Generate a professional resume summary and bullet points for a ${jobTitle} position.
-      
+      Use a professional tone and highlight achievements with quantifiable results where possible.
+
       Experience: ${experience}
       Skills: ${skills.join(", ")}
-      
+
       Please provide:
       1. A professional summary (2-3 sentences)
       2. 5-6 bullet points of key achievements and responsibilities
-      
+
       Respond with ONLY valid JSON, no markdown fences, in the shape:
       {"summary": string, "bulletPoints": string[]}
     `;
 
     const response = await this.ai.models.generateContent({
-      model: "gemini-2.0-pro",
+      model: "gemini-2.0-flash",
       contents: prompt,
     });
 
@@ -133,7 +196,6 @@ export class GeminiService {
     try {
       return JSON.parse(cleaned);
     } catch {
-      // Fall back to returning the raw text as the summary if parsing fails
       return { summary: raw, bulletPoints: [] };
     }
   }
@@ -142,19 +204,20 @@ export class GeminiService {
    * Generate career advice (for Career Tools)
    */
   async generateCareerAdvice(query: string, context?: string) {
-    const fullPrompt = `
-      You are a career advisor. Please provide helpful, practical advice for the following question:
-      
+    const prompt = `
+      You are an experienced career advisor with 10+ years of industry experience.
+      Provide practical, actionable advice for the following question.
+      Be specific and include concrete steps when possible.
+
       Question: ${query}
-      
-      ${context ? `Additional context: ${context}` : ""}
-      
-      Provide actionable advice with specific steps when possible.
+
+      ${context ? `Additional context: ${context}\n\n` : ""}
+      Advice:
     `;
 
     const response = await this.ai.models.generateContent({
       model: "gemini-2.0-flash",
-      contents: fullPrompt,
+      contents: prompt,
     });
 
     return response.text ?? "";

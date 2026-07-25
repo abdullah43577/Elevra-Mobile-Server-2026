@@ -2,11 +2,13 @@ import { BadRequestError, NotFoundError } from "../../lib/errors";
 import { FolderRepository } from "../../repositories/notes/folder.repository";
 import { NoteRepository } from "../../repositories/notes/note.repository";
 import { TagRepository } from "../../repositories/notes/tag.repository";
+import { GeminiService } from "../gemini.service";
 
 export class NoteService {
   private noteRepo = new NoteRepository();
   private folderRepo = new FolderRepository();
   private tagRepo = new TagRepository();
+  private geminiService = new GeminiService();
 
   async getNotes(userId: string, options?: { folderId?: string; search?: string }) {
     // Build options with conditional spreading to avoid undefined values
@@ -120,24 +122,17 @@ export class NoteService {
     });
   }
 
-  async generateSummary(noteId: string, userId: string) {
-    const note = await this.getNoteById(noteId, userId);
+  /**
+   * Stream the summary generation
+   */
+  async streamSummary(text: string, onChunk: (chunk: string) => void): Promise<void> {
+    await this.geminiService.generateSummaryStream(text, onChunk);
+  }
 
-    if (!note.content) {
-      throw new BadRequestError("Note has no content to summarize");
-    }
-
-    // TODO: Integrate with AI service
-    // For now, return a placeholder
-    const placeholderSummary = `AI summarization coming soon! This note contains ${note.content.length} characters.`;
-
-    // Store the summary
-    await this.noteRepo.updateSummary(noteId, userId, placeholderSummary);
-
-    return {
-      summary: placeholderSummary,
-      noteId,
-      generatedAt: new Date().toISOString(),
-    };
+  /**
+   * Save summary to database
+   */
+  async saveSummary(noteId: string, userId: string, summary: string) {
+    await this.noteRepo.updateSummary(noteId, userId, summary);
   }
 }

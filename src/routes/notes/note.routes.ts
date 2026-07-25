@@ -16,6 +16,6 @@ router.put("/:id", noteController.updateNote.bind(noteController));
 router.delete("/:id", noteController.deleteNote.bind(noteController));
 router.post("/:id/archive", noteController.toggleArchive.bind(noteController));
 router.post("/:id/pin", noteController.togglePin.bind(noteController));
-router.post("/:id/summary", noteController.generateSummary.bind(noteController));
+router.get("/:id/summary/stream", noteController.generateSummaryStream.bind(noteController));
 
 export { router as noteRouter };

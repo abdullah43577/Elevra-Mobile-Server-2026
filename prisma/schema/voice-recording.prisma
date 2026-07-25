@@ -1,9 +1,18 @@
 model VoiceRecording {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  fileUrl    String
-  duration   Int?     // seconds
-  status     String   @default("uploaded") // uploaded, processing, done (locked for now)
-  createdAt  DateTime @default(now())
+  id             String   @id @default(cuid())
+  title          String
+  duration       Int      
+  fileUrl        String   
+  fileSize       Int?    
+  publicId       String? 
+  transcription  String?  
+  isTranscribed  Boolean  @default(false)
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([createdAt])
 }
