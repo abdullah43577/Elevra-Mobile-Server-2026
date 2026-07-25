@@ -5,6 +5,7 @@ import { noteRouter } from "./notes/note.routes";
 import { tagRouter } from "./notes/tag.routes";
 import { folderRouter } from "./notes/folder.routes";
 import { voiceRecordingRouter } from "./voice-recording.routes";
+import { resumeRouter } from "./resume.routes";
 
 export const registerRoutes = (app: Application) => {
   app.use("/v1/auth", authRouter);
@@ -13,6 +14,7 @@ export const registerRoutes = (app: Application) => {
   app.use("/v1/notes/tags", tagRouter);
   app.use("/v1/notes/", noteRouter);
   app.use("/v1/voice-notes", voiceRecordingRouter);
+  app.use("/v1/resume", resumeRouter);
 
   // 404 fallback
   app.use((req: Request, res: Response) => {

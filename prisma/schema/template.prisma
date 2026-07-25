@@ -1,8 +1,22 @@
 model Template {
-  id       String  @id @default(cuid())
-  name     String
-  category String  // Minimal, Executive, Creative, Corporate, Tech, Graduate
-  previewUrl String
-  isPremium Boolean @default(false)
-  resumes  Resume[]
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  thumbnail      String   // URL to thumbnail image
+  category       String   // professional, creative, modern, minimal, executive
+  
+  // Template configuration
+  sections       Json?    // [{ id, name, enabled, order }]
+  styles         Json?    // { primaryColor, fontFamily, spacing, layout }
+  
+  isPremium      Boolean  @default(false)
+  isActive       Boolean  @default(true)
+  
+  resumes        Resume[]
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@index([category])
+  @@index([isPremium])
 }

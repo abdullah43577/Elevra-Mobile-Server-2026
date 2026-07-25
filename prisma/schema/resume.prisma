@@ -1,12 +1,28 @@
 model Resume {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  title      String
-  templateId String?
-  template   Template? @relation(fields: [templateId], references: [id])
-  content    Json     // structured resume data (sections, experience, etc.)
-  atsScore   Int?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id             String   @id @default(cuid())
+  title          String
+  templateId     String
+  template       Template @relation(fields: [templateId], references: [id])
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Resume Data (stored as JSON)
+  personalInfo   Json?    // { firstName, lastName, email, phone, location, title, summary }
+  experience     Json?    // [{ company, position, startDate, endDate, description, achievements }]
+  education      Json?    // [{ school, degree, field, startDate, endDate, gpa }]
+  skills         Json?    // [{ name, level }]
+  languages      Json?    // [{ name, proficiency }]
+  certifications Json?    // [{ name, issuer, date }]
+  projects       Json?    // [{ name, description, url, technologies }]
+  references     Json?    // [{ name, position, company, email, phone }]
+  
+  // Metadata
+  isPublished    Boolean  @default(false)
+  lastExportedAt DateTime?
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([templateId])
 }
