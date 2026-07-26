@@ -1,28 +1,31 @@
 model Resume {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
   title          String
   templateId     String
-  template       Template @relation(fields: [templateId], references: [id])
+  template       Template  @relation(fields: [templateId], references: [id])
   userId         String
-  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  
-  // Resume Data (stored as JSON)
-  personalInfo   Json?    // { firstName, lastName, email, phone, location, title, summary }
-  experience     Json?    // [{ company, position, startDate, endDate, description, achievements }]
-  education      Json?    // [{ school, degree, field, startDate, endDate, gpa }]
-  skills         Json?    // [{ name, level }]
-  languages      Json?    // [{ name, proficiency }]
-  certifications Json?    // [{ name, issuer, date }]
-  projects       Json?    // [{ name, description, url, technologies }]
-  references     Json?    // [{ name, position, company, email, phone }]
-  
-  // Metadata
-  isPublished    Boolean  @default(false)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  personalInfo   Json?
+  experience     Json?
+  education      Json?
+  skills         Json?
+  languages      Json?
+  certifications Json?
+  projects       Json?
+  references     Json?
+  awards         Json? 
+
+  customThemeId  String?
+  customTheme    ResumeTheme?    @relation(fields: [customThemeId], references: [id])
+
+  isPublished    Boolean   @default(false)
   lastExportedAt DateTime?
-  
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
   @@index([userId])
   @@index([templateId])
+  @@index([customThemeId])
 }

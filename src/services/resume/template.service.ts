@@ -15,4 +15,13 @@ export class TemplateService {
     }
     return template;
   }
+
+  async updateThumbnail(templateId: string, thumbnailUrl: string) {
+    const template = await this.templateRepo.findById(templateId);
+    if (!template) {
+      throw new NotFoundError("Template not found");
+    }
+
+    return this.templateRepo.updateThumbnail(templateId, thumbnailUrl);
+  }
 }

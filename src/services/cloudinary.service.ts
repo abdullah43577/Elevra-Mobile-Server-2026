@@ -7,12 +7,12 @@ import cloudinary from "../lib/cloudinary-config";
 export class CloudinaryService {
   private userRepo = new UserRepository();
 
-  async uploadFile(userId: string, file: Express.Multer.File, type: "avatar" | "auto") {
+  async uploadFile(folder: string, file: Express.Multer.File, type: "avatar" | "auto") {
     try {
       return await new Promise<UploadApiResponse>((resolve, reject) => {
         const stream = cloudinary.uploader.upload_stream(
           {
-            folder: `users/${userId}/${type}`,
+            folder: `users/${folder}/${type}`,
             resource_type: type === "avatar" ? "image" : "auto",
           },
 

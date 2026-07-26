@@ -16,6 +16,7 @@ export class TemplateRepository {
 
     return prisma.template.findMany({
       where,
+      include: { theme: true },
       orderBy: [{ isPremium: "desc" }, { name: "asc" }],
     });
   }
@@ -27,9 +28,22 @@ export class TemplateRepository {
   }
 
   // Admin methods (for seeding)
-  async create(data: { name: string; description?: string; thumbnail: string; category: string; sections?: any; styles?: any; isPremium?: boolean }) {
+  async create(data: { name: string; description?: string; thumbnail: string; category: string; layoutKey: string; themeId: string; defaultData: any; sections?: any; styles?: any; isPremium?: boolean }) {
+    const { name, description, thumbnail, category, layoutKey, themeId, defaultData, sections, styles, isPremium } = data;
+
     return prisma.template.create({
-      data,
+      data: {
+        name,
+        category,
+        layoutKey,
+        themeId,
+        defaultData,
+        thumbnail,
+        ...(description && { description }),
+        ...(sections && { sections }),
+        ...(styles && { styles }),
+        ...(isPremium !== undefined && { isPremium }),
+      },
     });
   }
 
@@ -37,6 +51,13 @@ export class TemplateRepository {
     return prisma.template.createMany({
       data: templates,
       skipDuplicates: true,
+    });
+  }
+
+  async updateThumbnail(id: string, thumbnailUrl: string) {
+    return prisma.template.update({
+      where: { id },
+      data: { thumbnail: thumbnailUrl },
     });
   }
 }

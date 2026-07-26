@@ -4,10 +4,13 @@ import { TemplateService } from "../services/resume/template.service";
 import type { IUserRequest } from "../interface";
 import { handleErrors } from "../lib/handle-errors";
 import { createResumeSchema, getTemplatesQuerySchema, updateResumeSchema } from "../schemas/resume";
+import { CloudinaryService } from "../services/cloudinary.service";
+import { BadRequestError } from "../lib/errors";
 
 export class ResumeController {
   private resumeService = new ResumeService();
   private templateService = new TemplateService();
+  private cloudinaryService = new CloudinaryService();
 
   // ==================== Templates ====================
 
@@ -16,9 +19,9 @@ export class ResumeController {
       const { category, isPremium, search } = getTemplatesQuerySchema.parse(req.query);
 
       const templates = await this.templateService.getTemplates({
-        category: category as string,
-        isPremium: isPremium as boolean,
-        search: search as string,
+        ...(category && { category }),
+        ...(isPremium && { isPremium }),
+        ...(search && { search }),
       });
 
       res.status(200).json({
@@ -37,6 +40,35 @@ export class ResumeController {
 
       res.status(200).json({
         message: "Template retrieved successfully",
+        data: template,
+      });
+    } catch (error) {
+      handleErrors({ res, error });
+    }
+  }
+
+  async uploadThumbnail(req: IUserRequest, res: Response) {
+    try {
+      const { templateId } = req.body;
+      const file = req.file;
+
+      if (!file) throw new BadRequestError("No image file provided");
+
+      // Only admin can upload thumbnails (or use a secret key)
+      // For now, we'll trust the user (you can add admin check later)
+
+      // Upload to Cloudinary
+      const result = await this.cloudinaryService.uploadFile(
+        "templates", // folder
+        file,
+        "auto",
+      );
+
+      // Update template with thumbnail URL
+      const template = await this.templateService.updateThumbnail(templateId as string, result.secure_url);
+
+      res.status(200).json({
+        message: "Thumbnail uploaded successfully",
         data: template,
       });
     } catch (error) {

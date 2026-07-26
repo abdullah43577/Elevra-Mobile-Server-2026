@@ -7,9 +7,9 @@ import { z } from "zod";
 export const getTemplatesQuerySchema = z.object({
   category: z.string().optional(),
   isPremium: z
-    .string()
+    .enum(["true", "false"])
     .optional()
-    .transform(val => val === "true"),
+    .transform(val => (val === undefined ? undefined : val === "true")),
   search: z.string().optional(),
 });
 
@@ -45,6 +45,13 @@ const educationSchema = z.object({
   endDate: z.string().optional(),
   current: z.boolean().optional(),
   gpa: z.string().optional(),
+});
+
+export const awardItemSchema = z.object({
+  title: z.string(),
+  issuer: z.string(),
+  date: z.string().optional(),
+  description: z.string().optional(),
 });
 
 const skillSchema = z.object({
