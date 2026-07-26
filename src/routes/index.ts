@@ -12,7 +12,7 @@ export const registerRoutes = (app: Application) => {
   app.use("/v1/professions", professionRouter);
   app.use("/v1/notes/folders", folderRouter);
   app.use("/v1/notes/tags", tagRouter);
-  app.use("/v1/notes/", noteRouter);
+  app.use("/v1/notes", noteRouter);
   app.use("/v1/voice-notes", voiceRecordingRouter);
   app.use("/v1/resume", resumeRouter);
 

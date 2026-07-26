@@ -28,7 +28,6 @@ export class VoiceRecordingService {
     data: {
       title: string;
       duration: number;
-      fileUrl: string;
       fileSize?: number;
       publicId?: string;
     },

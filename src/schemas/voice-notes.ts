@@ -3,7 +3,6 @@ import { z } from "zod";
 export const createVoiceRecordingSchema = z.object({
   title: z.string().min(1).max(200),
   duration: z.number().int().positive(),
-  fileUrl: z.string().min(1),
   fileSize: z.number().int().positive().optional(),
 });
 
