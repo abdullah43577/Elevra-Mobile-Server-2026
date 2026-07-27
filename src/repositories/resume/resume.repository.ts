@@ -3,6 +3,7 @@ import { prisma } from "../../lib/prisma";
 
 const resumeInclude = {
   template: true,
+  customTheme: true,
 } satisfies Prisma.ResumeInclude;
 
 export class ResumeRepository {

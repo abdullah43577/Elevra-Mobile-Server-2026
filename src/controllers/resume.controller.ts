@@ -49,7 +49,7 @@ export class ResumeController {
 
   async uploadThumbnail(req: IUserRequest, res: Response) {
     try {
-      const { templateId } = req.body;
+      const { id } = req.params;
       const file = req.file;
 
       if (!file) throw new BadRequestError("No image file provided");
@@ -65,7 +65,7 @@ export class ResumeController {
       );
 
       // Update template with thumbnail URL
-      const template = await this.templateService.updateThumbnail(templateId as string, result.secure_url);
+      const template = await this.templateService.updateThumbnail(id as string, result.secure_url);
 
       res.status(200).json({
         message: "Thumbnail uploaded successfully",

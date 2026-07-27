@@ -20,6 +20,6 @@ router.post("/", resumeController.createResume.bind(resumeController));
 router.put("/:id", resumeController.updateResume.bind(resumeController));
 router.delete("/:id", resumeController.deleteResume.bind(resumeController));
 router.post("/:id/export", resumeController.exportResume.bind(resumeController));
-router.post("/templates/thumbnail", validateAccessToken, upload.single("thumbnail"), resumeController.uploadThumbnail.bind(resumeController));
+router.post("/templates/:id/thumbnail", validateAccessToken, upload.single("thumbnail"), resumeController.uploadThumbnail.bind(resumeController));
 
 export { router as resumeRouter };

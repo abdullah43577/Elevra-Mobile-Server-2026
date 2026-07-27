@@ -24,6 +24,7 @@ export class TemplateRepository {
   async findById(id: string) {
     return prisma.template.findUnique({
       where: { id, isActive: true },
+      include: { theme: true },
     });
   }
 

@@ -44,13 +44,10 @@ export class VoiceRecordingController {
 
   async createRecording(req: IUserRequest, res: Response) {
     try {
-      console.log("owole");
       const { userId } = req;
       const audioFile = req.file;
 
       const { title, duration, fileSize } = createVoiceRecordingSchema.parse(req.body);
-
-      console.log(title, duration, fileSize, "all data sent here");
 
       const recording = await this.voiceService.createRecording(
         userId!,
