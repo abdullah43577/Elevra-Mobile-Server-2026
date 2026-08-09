@@ -40,7 +40,6 @@ export class VoiceRecordingService {
     if (!audioFile) throw new BadRequestError("Audio file is required");
 
     const result = await this.cloudinaryService.uploadFile(userId, audioFile, "auto");
-    console.log("pass");
 
     return this.voiceRepo.create({
       userId,

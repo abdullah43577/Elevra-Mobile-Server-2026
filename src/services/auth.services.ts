@@ -24,8 +24,12 @@ export class AuthService {
 
       const hashedPassword = await hashPassword(data.password);
 
+      const { deviceToken, deviceType, ...rest } = data;
+
       const user = await this.userRepo.createUser({
-        ...data,
+        ...rest,
+        ...(deviceToken && { deviceToken }),
+        ...(deviceType && { deviceType }),
         password: hashedPassword,
         has_onboarded: true,
       });

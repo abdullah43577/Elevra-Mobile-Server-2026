@@ -47,7 +47,10 @@ export class VoiceRecordingController {
       const { userId } = req;
       const audioFile = req.file;
 
+      console.log(req.body, "step 1");
       const { title, duration, fileSize } = createVoiceRecordingSchema.parse(req.body);
+
+      console.log(title, duration, fileSize, "let's go");
 
       const recording = await this.voiceService.createRecording(
         userId!,

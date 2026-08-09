@@ -6,7 +6,7 @@ export const createVoiceRecordingSchema = z.object({
     .string()
     .or(z.number())
     .transform(val => Number(val))
-    .pipe(z.number().int().positive()),
+    .pipe(z.number().int().min(0)),
   fileSize: z
     .string()
     .or(z.number())

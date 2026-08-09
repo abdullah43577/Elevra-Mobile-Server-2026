@@ -32,6 +32,8 @@ model User {
   lastLogin             DateTime           @default(now())
   account_status        AccountStatus      @default(ACTIVE)
   has_onboarded Boolean @default(false)
+  deviceToken   String?
+  deviceType    String?
 
   professionId   String?
   profession     Profession? @relation(fields: [professionId], references: [id])
