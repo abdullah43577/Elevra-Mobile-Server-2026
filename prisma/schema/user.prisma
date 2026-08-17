@@ -50,4 +50,5 @@ model User {
   tags          Tag[]
   voiceRecordings VoiceRecording[]
   settings        UserSettings?
+  jobApplications JobApplication[]
 }

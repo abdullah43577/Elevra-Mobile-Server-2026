@@ -19,6 +19,8 @@ model Resume {
   customThemeId  String?
   customTheme    ResumeTheme?    @relation(fields: [customThemeId], references: [id])
 
+  applications   JobApplication[]
+
   isPublished    Boolean   @default(false)
   lastExportedAt DateTime?
 

@@ -1,0 +1,76 @@
+enum ApplicationStatus {
+  SAVED
+  APPLIED
+  INTERVIEWING
+  OFFER
+  REJECTED
+  WITHDRAWN
+}
+
+enum WorkArrangement {
+  ONSITE
+  HYBRID
+  REMOTE
+}
+
+model JobApplication {
+  id              String            @id @default(cuid())
+  company         String
+  role            String
+  location        String?
+  workArrangement WorkArrangement?
+  jobUrl          String?
+  source          String?
+  salaryMin       Int?
+  salaryMax       Int?
+  salaryCurrency  String?
+  status          ApplicationStatus @default(SAVED)
+  appliedAt       DateTime?
+  notes           String?
+  isArchived      Boolean           @default(false)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // The resume version actually sent. SetNull so deleting a resume does not
+  // erase the application history it was attached to.
+  resumeId String?
+  resume   Resume? @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+
+  linkedNotes      ApplicationNote[]
+  linkedRecordings ApplicationRecording[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([resumeId])
+  @@index([isArchived])
+}
+
+model ApplicationNote {
+  id            String         @id @default(cuid())
+  applicationId String
+  noteId        String
+  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  note          Note           @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([applicationId, noteId])
+  @@index([noteId])
+}
+
+model ApplicationRecording {
+  id            String         @id @default(cuid())
+  applicationId String
+  recordingId   String
+  application   JobApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  recording     VoiceRecording @relation(fields: [recordingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([applicationId, recordingId])
+  @@index([recordingId])
+}

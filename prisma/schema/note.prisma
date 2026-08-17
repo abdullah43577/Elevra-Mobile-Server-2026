@@ -41,7 +41,8 @@ model Note {
   folder      Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
   
   tags        NoteTag[]
-  
+  applications ApplicationNote[]
+
   // AI-generated summary (stored after processing)
   aiSummary   String?
   summaryGeneratedAt DateTime?
