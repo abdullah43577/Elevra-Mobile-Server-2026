@@ -1,0 +1,23 @@
+/*
+  The user's master career history — one row per user, holding the same Json
+  shapes as Resume so prefilling a new resume is a direct copy with no mapping
+  layer. A resume is a snapshot taken from this, never a live reference:
+  editing your profile must not silently rewrite resumes you have already sent.
+*/
+model CareerProfile {
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  personalInfo   Json?
+  experience     Json?
+  education      Json?
+  skills         Json?
+  languages      Json?
+  certifications Json?
+  projects       Json?
+  references     Json?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}

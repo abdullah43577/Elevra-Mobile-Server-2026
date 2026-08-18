@@ -52,4 +52,5 @@ model User {
   settings        UserSettings?
   jobApplications JobApplication[]
   notifications   Notification[]
+  careerProfile   CareerProfile?
 }

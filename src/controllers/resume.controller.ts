@@ -111,16 +111,9 @@ export class ResumeController {
   async createResume(req: IUserRequest, res: Response) {
     try {
       const { userId } = req;
-      const { title, templateId, personalInfo, experience, education, skills } = createResumeSchema.parse(req.body);
+      const data = createResumeSchema.parse(req.body);
 
-      const resume = await this.resumeService.createResume(userId!, {
-        title,
-        templateId,
-        personalInfo,
-        experience,
-        education,
-        skills,
-      });
+      const resume = await this.resumeService.createResume(userId!, data);
 
       res.status(201).json({
         message: "Resume created successfully",
@@ -135,15 +128,25 @@ export class ResumeController {
     try {
       const { userId } = req;
       const { id } = req.params;
-      const { title, templateId, personalInfo, experience, education, skills } = updateResumeSchema.parse(req.body);
+      const body = updateResumeSchema.parse(req.body);
 
+      /*
+        Spread each section conditionally rather than passing the parsed body
+        through. exactOptionalPropertyTypes rejects an explicit `undefined`, and
+        a blanket spread carries one for every key the client left out.
+      */
       const resume = await this.resumeService.updateResume(id as string, userId!, {
-        ...(title && { title }),
-        ...(templateId && { templateId }),
-        personalInfo,
-        experience,
-        education,
-        skills,
+        ...(body.title && { title: body.title }),
+        ...(body.templateId && { templateId: body.templateId }),
+        ...(body.personalInfo !== undefined && { personalInfo: body.personalInfo }),
+        ...(body.experience !== undefined && { experience: body.experience }),
+        ...(body.education !== undefined && { education: body.education }),
+        ...(body.skills !== undefined && { skills: body.skills }),
+        ...(body.languages !== undefined && { languages: body.languages }),
+        ...(body.certifications !== undefined && { certifications: body.certifications }),
+        ...(body.projects !== undefined && { projects: body.projects }),
+        ...(body.references !== undefined && { references: body.references }),
+        ...(body.isPublished !== undefined && { isPublished: body.isPublished }),
       });
 
       res.status(200).json({

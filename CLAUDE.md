@@ -562,6 +562,13 @@ once.
 
 ## 15. Auth hardening
 
+> **Testing against the dev database: create a throwaway account.** The auth
+> flows are destructive to test — a password reset genuinely resets a password,
+> and bcrypt is one-way, so there is no putting the original back. This already
+> cost a real account its password. Sign up a temporary user, test against it,
+> delete it.
+
+
 ### Password reset
 
 `POST /v1/auth/reset-password` consumes the OTP that `forgotPassword` writes to
@@ -629,3 +636,55 @@ worse than none.
 `sse.service.ts` sets `Access-Control-Allow-Origin: *` on its own — the one
 place currently making a CORS promise. Harmless today (no browser reads it),
 but it is inconsistent; scope or remove it if CORS is ever configured properly.
+
+---
+
+## 16. Career Profile
+
+The user's master career history — one row per user, feeding the resume
+builder's prefill. Client side, entry points, and the editor UI are in
+`../elevra/CLAUDE.md` §17.
+
+Base path `/v1/career-profile`. No id in the path: `userId` is `@unique` on the
+model, so there is exactly one per account.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/` | Returns `data: null` when none exists |
+| PUT | `/` | Upsert — one write path for create and update |
+| DELETE | `/` | 404s if there is nothing to delete |
+
+**`CareerProfile` holds the same `Json` columns as `Resume`.** That is the whole
+point: prefilling a new resume is a direct copy with no mapping layer, and the
+client can drive both forms with one schema and one set of section components.
+Add a section to one model and it has to be added to the other, or prefill
+silently skips it.
+
+**`GET` returns 200 with `data: null`, not 404.** "No profile yet" is the normal
+first state of every account. A 404 would make the client's error handler toast
+on the first screen a new user opens.
+
+**A section is only written when the request actually carries it.** The service
+spreads with `!== undefined`, so saving one step of the editor cannot wipe the
+sections it did not touch, while sending `[]` still clears one deliberately.
+
+**Shared section schemas live in `src/schemas/resume-data.ts`.** Both
+`schemas/resume.ts` and `schemas/career-profile.ts` build on `resumeDataSchema`.
+They must validate identically — a field the profile accepts but the resume
+rejects would vanish the moment someone prefilled from it. That file mirrors
+`../elevra/types/resume/data.ts`; change one, change both.
+
+### A bug this uncovered in the resume slice
+
+`resume.controller.ts` destructured only
+`{ title, templateId, personalInfo, experience, education, skills }` out of the
+parsed body and passed just those to the service — so **`languages`,
+`certifications`, `projects`, and `references` were silently dropped on every
+create and update**, and `updateResumeSchema` did not even declare them. The
+client had been sending all eight sections since the builder was rebuilt; four
+of them never reached the database. Both the schema and the controller are fixed
+and verified against the live API.
+
+The update path spreads each section conditionally rather than passing the
+parsed body straight through: `exactOptionalPropertyTypes` rejects an explicit
+`undefined`, and a blanket spread carries one for every key the client omitted.
