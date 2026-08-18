@@ -242,6 +242,8 @@ verify at request time, not at boot.
 | `/v1/notes/tags` | `notes/tag.routes.ts` | `Tag` |
 | `/v1/voice-notes` | `voice-recording.routes.ts` | `VoiceRecording` |
 | `/v1/resume` | `resume.routes.ts` | `Resume`, `Template`, `ResumeTheme` |
+| `/v1/job-applications` | `job-application.routes.ts` | `JobApplication` + join tables |
+| `/v1/notifications` | `notification.routes.ts` | `Notification` |
 
 More specific prefixes must be registered **before** less specific ones —
 `/v1/notes/folders` and `/v1/notes/tags` are registered ahead of `/v1/notes` in
@@ -265,7 +267,8 @@ from the DB on every request.
 | Voice recordings (upload → Cloudinary, CRUD) | Done |
 | Voice transcription | Endpoint exists, not implemented |
 | Resumes, templates, export | Done |
-| Job Application Tracker | **Next — see §8** |
+| Job Application Tracker | Done — see §8 |
+| Notifications | Done — model, CRUD, Expo push, device registration |
 
 Open loose ends, roughly in priority order:
 
@@ -370,3 +373,51 @@ npx prisma studio
 ```
 
 There is no test suite. A clean `npm run build` is the verification gate.
+
+
+---
+
+## 10. Notifications
+
+`Notification` rows are the source of truth; the Expo push is a courtesy on top.
+
+**`NotificationService.notify()` is the entry point every other service uses.**
+It writes the row, checks `UserSettings.notifications`, then pushes to the
+user's `deviceToken`. It **deliberately swallows its own errors** — notifying is
+always a side effect of some other action (a status change, a summary
+finishing), and that action must not fail because a device token went stale or
+Expo was unreachable. Callers do not need to guard it.
+
+`PushService` talks to `https://exp.host/--/api/v2/push/send` over plain
+`fetch`, so there is no SDK dependency. It filters to well-formed
+`ExponentPushToken[...]` values and returns `{ sent }` rather than throwing.
+
+**Events that currently emit:**
+
+| Event | Type | Where |
+| --- | --- | --- |
+| Email verified | `SYSTEM` | `auth.services.ts` → `verifyEmail` |
+| Application status changed | `APPLICATION_STATUS` | `job-application.service.ts` → `updateApplication` |
+| Note summary finished | `NOTE_SUMMARY` | `note.controller.ts` → `generateSummaryStream` |
+
+Status changes only fire when the status **actually differs** from the stored
+one — editing an application's location does not notify.
+
+**Resume export deliberately does not notify.** `exportResume` is still a stub
+that returns `"Export functionality coming soon"`; a notification there would
+tell the user something happened that did not. Wire it up when PDF generation
+lands.
+
+`entityType` / `entityId` are loose strings, not a relation, because a
+notification must outlive the record it points at. The client maps `entityType`
+to a route.
+
+**Device registration.** `POST /v1/notifications/device` updates
+`User.deviceToken`. Previously the token was only captured at sign-up, so
+signing in on a second device left the server pushing to an address nobody was
+listening on. `getProfile` now returns `deviceToken`/`deviceType` so the client
+can skip a redundant re-register.
+
+**Not built yet:** `APPLICATION_REMINDER` and `VOICE_TRANSCRIPTION` exist in the
+enum but nothing emits them. Reminders need a scheduler (BullMQ, still
+deferred).

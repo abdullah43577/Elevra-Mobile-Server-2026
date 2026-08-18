@@ -8,12 +8,14 @@ import crypto from "crypto";
 import { redis } from "../lib/redis-connection";
 import { MailService } from "./mail.service";
 import { CloudinaryService } from "./cloudinary.service";
+import { NotificationService } from "./notification.service";
 import type { UpdateProfile, UpdateSettings } from "../schemas/profile";
 
 export class AuthService {
   private userRepo = new UserRepository();
   private mailService = new MailService();
   private cloudinaryService = new CloudinaryService();
+  private notificationService = new NotificationService();
   private static generateOTP = () => crypto.randomInt(100000, 1000000).toString();
 
   async register(data: SignUpFormValues) {
@@ -66,6 +68,13 @@ export class AuthService {
 
       await this.mailService.sendWelcome(user.email, {
         name: user.first_name ?? user.last_name ?? "User",
+      });
+
+      await this.notificationService.notify({
+        userId: user.id,
+        type: "SYSTEM",
+        title: "Welcome to Elevra",
+        body: "Start by tracking a job application, writing a note, or building a resume.",
       });
 
       return true;
@@ -197,6 +206,8 @@ export class AuthService {
         lastLogin: true,
         account_status: true,
         has_onboarded: true,
+        deviceToken: true,
+        deviceType: true,
         isGuest: true,
         createdAt: true,
         updatedAt: true,

@@ -51,4 +51,5 @@ model User {
   voiceRecordings VoiceRecording[]
   settings        UserSettings?
   jobApplications JobApplication[]
+  notifications   Notification[]
 }

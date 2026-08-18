@@ -2,6 +2,7 @@ import type { ApplicationStatus } from "../generated/prisma/client";
 import { BadRequestError, ConflictError, NotFoundError } from "../lib/errors";
 import { JobApplicationRepository, type JobApplicationWriteData } from "../repositories/job-application.repository";
 import type { CreateJobApplicationInput } from "../schemas/job-application";
+import { NotificationService } from "./notification.service";
 
 const ALL_STATUSES: ApplicationStatus[] = ["SAVED", "APPLIED", "INTERVIEWING", "OFFER", "REJECTED", "WITHDRAWN"];
 
@@ -9,8 +10,18 @@ const ALL_STATUSES: ApplicationStatus[] = ["SAVED", "APPLIED", "INTERVIEWING", "
 // should be stamped even when the client did not send one.
 const SUBMITTED_STATUSES: ApplicationStatus[] = ["APPLIED", "INTERVIEWING", "OFFER", "REJECTED"];
 
+const STATUS_HEADLINES: Record<ApplicationStatus, string> = {
+  SAVED: "Application moved back to saved",
+  APPLIED: "Application submitted",
+  INTERVIEWING: "You are interviewing",
+  OFFER: "You received an offer",
+  REJECTED: "Application closed",
+  WITHDRAWN: "Application withdrawn",
+};
+
 export class JobApplicationService {
   private applicationRepo = new JobApplicationRepository();
+  private notificationService = new NotificationService();
 
   async getApplications(
     userId: string,
@@ -108,7 +119,20 @@ export class JobApplicationService {
         updateData.appliedAt = new Date();
       }
 
-      return await this.applicationRepo.update(applicationId, userId, updateData);
+      const updated = await this.applicationRepo.update(applicationId, userId, updateData);
+
+      if (data.status && data.status !== existing.status) {
+        await this.notificationService.notify({
+          userId,
+          type: "APPLICATION_STATUS",
+          title: STATUS_HEADLINES[data.status],
+          body: `${updated.role} at ${updated.company}`,
+          entityType: "application",
+          entityId: updated.id,
+        });
+      }
+
+      return updated;
     } catch (error) {
       throw error;
     }

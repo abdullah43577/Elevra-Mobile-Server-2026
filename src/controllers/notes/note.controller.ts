@@ -5,9 +5,11 @@ import { handleErrors } from "../../lib/handle-errors";
 import { createNoteSchema, getNotesQuerySchema, updateNoteSchema } from "../../schemas/notes";
 import { stripHtml } from "../../lib/strip-html";
 import { SSEHelper } from "../../services/sse.service";
+import { NotificationService } from "../../services/notification.service";
 
 export class NoteController {
   private noteService = new NoteService();
+  private notificationService = new NotificationService();
 
   async getNotes(req: IUserRequest, res: Response) {
     try {
@@ -182,6 +184,15 @@ export class NoteController {
 
       // Save the full summary to the database
       await this.noteService.saveSummary(id as string, userId!, fullSummary);
+
+      await this.notificationService.notify({
+        userId: userId!,
+        type: "NOTE_SUMMARY",
+        title: "Summary ready",
+        body: note.title,
+        entityType: "note",
+        entityId: id as string,
+      });
 
       // Send completion signal
       sse.sendComplete(fullSummary);
