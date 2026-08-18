@@ -1,0 +1,46 @@
+/*
+  A cover letter reuses the resume Template catalogue rather than owning one.
+  A letter and the resume sent with it should read as a matched set — same
+  colour, font, spacing, and header treatment — and the theme already carries
+  everything the letter needs.
+
+  `personalInfo` is the sender block and holds the same Json shape as
+  Resume.personalInfo and CareerProfile.personalInfo, so it prefills from the
+  career profile as a direct copy.
+*/
+model CoverLetter {
+  id             String   @id @default(cuid())
+  title          String
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  templateId     String
+  template       Template @relation(fields: [templateId], references: [id])
+
+  personalInfo   Json?
+
+  company        String
+  role           String
+  recipientName  String?
+  recipientTitle String?
+  companyAddress String?
+
+  body           String
+  closing        String?
+
+  // Stamped on create rather than entered by hand. Adding manual editing means
+  // a native date picker and a dev-client rebuild, for a field nobody wants to
+  // set to anything other than "today" — the same call the job tracker made
+  // about appliedAt.
+  letterDate     DateTime @default(now())
+
+  applications   JobApplication[]
+
+  lastExportedAt DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@index([templateId])
+}

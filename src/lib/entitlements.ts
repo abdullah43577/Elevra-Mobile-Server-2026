@@ -17,6 +17,7 @@ import { prisma } from "./prisma";
 */
 export const PRO_FEATURES = {
   RESUME_EXPORT: "resume_export",
+  COVER_LETTER_EXPORT: "cover_letter_export",
   AI_NOTE_SUMMARY: "ai_note_summary",
   AI_REWRITER: "ai_rewriter",
   AI_CHAT: "ai_chat",
@@ -54,6 +55,7 @@ export const assertPro = async function (userId: string, feature: ProFeature) {
 
 const FEATURE_MESSAGES: Record<ProFeature, string> = {
   [PRO_FEATURES.RESUME_EXPORT]: "Exporting a resume as PDF requires Elevra Pro",
+  [PRO_FEATURES.COVER_LETTER_EXPORT]: "Exporting a cover letter as PDF requires Elevra Pro",
   [PRO_FEATURES.AI_NOTE_SUMMARY]: "AI summaries require Elevra Pro",
   [PRO_FEATURES.AI_REWRITER]: "The AI rewriter requires Elevra Pro",
   [PRO_FEATURES.AI_CHAT]: "AI chat requires Elevra Pro",

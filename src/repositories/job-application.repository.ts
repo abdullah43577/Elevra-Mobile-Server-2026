@@ -3,11 +3,13 @@ import { prisma } from "../lib/prisma";
 
 const listInclude = {
   resume: { select: { id: true, title: true } },
+  coverLetter: { select: { id: true, title: true } },
   _count: { select: { linkedNotes: true, linkedRecordings: true } },
 } satisfies Prisma.JobApplicationInclude;
 
 const detailInclude = {
   resume: { select: { id: true, title: true, templateId: true, updatedAt: true } },
+  coverLetter: { select: { id: true, title: true, company: true, role: true, updatedAt: true } },
   linkedNotes: {
     include: {
       note: { select: { id: true, title: true, updatedAt: true } },
@@ -36,6 +38,7 @@ export interface JobApplicationWriteData {
   appliedAt?: Date | null;
   notes?: string | null;
   resumeId?: string | null;
+  coverLetterId?: string | null;
   isArchived?: boolean;
   statusChangedAt?: Date;
 }
@@ -185,6 +188,10 @@ export class JobApplicationRepository {
 
   async findOwnedRecording(recordingId: string, userId: string) {
     return prisma.voiceRecording.findFirst({ where: { id: recordingId, userId }, select: { id: true } });
+  }
+
+  async findOwnedCoverLetter(coverLetterId: string, userId: string) {
+    return prisma.coverLetter.findFirst({ where: { id: coverLetterId, userId }, select: { id: true } });
   }
 
   async findOwnedResume(resumeId: string, userId: string) {

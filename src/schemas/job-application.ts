@@ -17,6 +17,7 @@ export const createJobApplicationSchema = z.object({
   appliedAt: z.iso.datetime().optional(),
   notes: z.string().max(5000).optional(),
   resumeId: z.string().optional(),
+  coverLetterId: z.string().optional(),
 });
 
 export const updateJobApplicationSchema = z.object({
@@ -33,6 +34,7 @@ export const updateJobApplicationSchema = z.object({
   appliedAt: z.iso.datetime().nullable().optional(),
   notes: z.string().max(5000).nullable().optional(),
   resumeId: z.string().nullable().optional(),
+  coverLetterId: z.string().nullable().optional(),
   isArchived: z.boolean().optional(),
 });
 

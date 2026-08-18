@@ -688,3 +688,55 @@ and verified against the live API.
 The update path spreads each section conditionally rather than passing the
 parsed body straight through: `exactOptionalPropertyTypes` rejects an explicit
 `undefined`, and a blanket spread carries one for every key the client omitted.
+
+---
+
+## 17. Cover letters
+
+Base path `/v1/cover-letters`. Standard slice; client side is in
+`../elevra/CLAUDE.md` §18.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/` | `?search=` matches title, company, or role |
+| GET | `/:id` | |
+| POST | `/` | `title` optional — derived from company and role |
+| PUT | `/:id` | |
+| DELETE | `/:id` | |
+| POST | `/:id/export` | Records the export. **Pro-gated.** |
+
+**`CoverLetter` has no template catalogue of its own** — it points at the same
+`Template` rows as `Resume`. A letter and the resume sent with it are read side
+by side, so they must share their header, colour, font and spacing exactly, and
+`Template.theme` already carries all of it. A second catalogue would double the
+seeding and design work and let the pair drift apart.
+
+**`coverLetterInclude` nests `template.theme`.** Same trap as `resumeInclude`:
+both the preview and the export read `template.theme`, so a bare
+`template: true` hands the client an undefined theme and rendering throws on the
+first colour lookup.
+
+**`body` is a single `String` column, not structured fields.** Paragraphs are
+separated by newlines and split at render time. People write letters as prose,
+and any structure imposed here would fight anyone who wants two paragraphs or
+five.
+
+**`letterDate` is stamped on create and never edited.** Manual editing means a
+native date picker and a dev-client rebuild for a field nobody sets to anything
+but "today" — the same call the job tracker made about `appliedAt`.
+
+**Export is Pro, matching resume export.** `PRO_FEATURES.COVER_LETTER_EXPORT`,
+asserted in the service so a second route pointed at the method cannot bypass
+it. The principle is unchanged: building is free, the finished deliverable is
+paid.
+
+**`JobApplication.coverLetterId`** mirrors `resumeId`, including
+`onDelete: SetNull` — deleting a letter must not erase the application it was
+attached to. Ownership is checked in the service via `assertCoverLetterOwned`
+before any link is written. Verified: attaching a letter belonging to someone
+else 404s, and deleting a linked letter leaves the application intact with a
+null link.
+
+`src/schemas/resume-data.ts` now backs three domains — `Resume`,
+`CareerProfile`, and `CoverLetter.personalInfo`. Keep it in step with
+`../elevra/types/resume/data.ts`.

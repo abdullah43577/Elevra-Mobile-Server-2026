@@ -10,6 +10,7 @@ import { resumeRouter } from "./resume.routes";
 import { jobApplicationRouter } from "./job-application.routes";
 import { notificationRouter } from "./notification.routes";
 import { careerProfileRouter } from "./career-profile.routes";
+import { coverLetterRouter } from "./cover-letter.routes";
 
 export const registerRoutes = (app: Application) => {
   app.use("/v1/auth", authRouter);
@@ -22,6 +23,7 @@ export const registerRoutes = (app: Application) => {
   app.use("/v1/job-applications", jobApplicationRouter);
   app.use("/v1/notifications", notificationRouter);
   app.use("/v1/career-profile", careerProfileRouter);
+  app.use("/v1/cover-letters", coverLetterRouter);
 
   // 404 fallback — must come before the error handler
   app.use((req: Request, res: Response) => {

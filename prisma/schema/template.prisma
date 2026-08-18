@@ -90,6 +90,7 @@ model Template {
   isActive    Boolean    @default(true)
 
   resumes     Resume[]
+  coverLetters CoverLetter[]
 
   createdAt   DateTime   @default(now())
   updatedAt   DateTime   @updatedAt

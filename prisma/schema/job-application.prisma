@@ -46,6 +46,11 @@ model JobApplication {
   resumeId String?
   resume   Resume? @relation(fields: [resumeId], references: [id], onDelete: SetNull)
 
+  // The cover letter actually sent. SetNull for the same reason as resumeId:
+  // deleting a letter must not erase the application it was attached to.
+  coverLetterId String?
+  coverLetter   CoverLetter? @relation(fields: [coverLetterId], references: [id], onDelete: SetNull)
+
   linkedNotes      ApplicationNote[]
   linkedRecordings ApplicationRecording[]
 
@@ -55,6 +60,7 @@ model JobApplication {
   @@index([userId])
   @@index([status])
   @@index([resumeId])
+  @@index([coverLetterId])
   @@index([isArchived])
 }
 

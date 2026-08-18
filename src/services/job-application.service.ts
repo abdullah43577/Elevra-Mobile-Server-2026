@@ -74,6 +74,7 @@ export class JobApplicationService {
       this.assertSalaryRange(data.salaryMin ?? null, data.salaryMax ?? null);
 
       if (data.resumeId) await this.assertResumeOwned(data.resumeId, userId);
+      if (data.coverLetterId) await this.assertCoverLetterOwned(data.coverLetterId, userId);
 
       const status = data.status ?? "SAVED";
       const appliedAt = data.appliedAt ? new Date(data.appliedAt) : SUBMITTED_STATUSES.includes(status) ? new Date() : null;
@@ -93,6 +94,7 @@ export class JobApplicationService {
         ...(data.salaryCurrency && { salaryCurrency: data.salaryCurrency.toUpperCase() }),
         ...(data.notes && { notes: data.notes }),
         ...(data.resumeId && { resumeId: data.resumeId }),
+        ...(data.coverLetterId && { coverLetterId: data.coverLetterId }),
       };
 
       return await this.applicationRepo.create(createData);
@@ -110,6 +112,7 @@ export class JobApplicationService {
       this.assertSalaryRange(nextMin, nextMax);
 
       if (data.resumeId) await this.assertResumeOwned(data.resumeId, userId);
+      if (data.coverLetterId) await this.assertCoverLetterOwned(data.coverLetterId, userId);
 
       const updateData: JobApplicationWriteData = { ...data };
 
@@ -211,6 +214,11 @@ export class JobApplicationService {
     if (min !== null && max !== null && min > max) {
       throw new BadRequestError("Minimum salary cannot be greater than maximum salary");
     }
+  }
+
+  private async assertCoverLetterOwned(coverLetterId: string, userId: string) {
+    const coverLetter = await this.applicationRepo.findOwnedCoverLetter(coverLetterId, userId);
+    if (!coverLetter) throw new NotFoundError("Cover letter not found");
   }
 
   private async assertResumeOwned(resumeId: string, userId: string) {
