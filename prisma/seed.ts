@@ -159,7 +159,6 @@ async function seedTemplates() {
         fontFamily: "LORA",
         spacing: "NORMAL",
         goldAccent: "#C9A84C",
-        showAwards: true,
         showBorders: true,
       },
     }),

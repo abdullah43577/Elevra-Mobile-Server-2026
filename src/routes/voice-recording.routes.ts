@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { validateAccessToken } from "../lib/validate-token";
-import { VoiceRecordingController } from "../controllers/voice-recording.conroller";
+import { VoiceRecordingController } from "../controllers/voice-recording.controller";
 import { upload } from "../lib/multer-config";
 
 const router = Router();

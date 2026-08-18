@@ -3,7 +3,7 @@ import { ResumeService } from "../services/resume/resume.service";
 import { TemplateService } from "../services/resume/template.service";
 import type { IUserRequest } from "../interface";
 import { handleErrors } from "../lib/handle-errors";
-import { createResumeSchema, getTemplatesQuerySchema, updateResumeSchema } from "../schemas/resume";
+import { createResumeSchema, duplicateResumeSchema, getTemplatesQuerySchema, updateResumeSchema } from "../schemas/resume";
 
 export class ResumeController {
   private resumeService = new ResumeService();
@@ -85,6 +85,23 @@ export class ResumeController {
 
       res.status(201).json({
         message: "Resume created successfully",
+        data: resume,
+      });
+    } catch (error) {
+      handleErrors({ res, error });
+    }
+  }
+
+  async duplicateResume(req: IUserRequest, res: Response) {
+    try {
+      const { userId } = req;
+      const { id } = req.params;
+      const { title } = duplicateResumeSchema.parse(req.body ?? {});
+
+      const resume = await this.resumeService.duplicateResume(id as string, userId!, title);
+
+      res.status(201).json({
+        message: "Resume duplicated successfully",
         data: resume,
       });
     } catch (error) {

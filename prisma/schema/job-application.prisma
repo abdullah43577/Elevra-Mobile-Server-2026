@@ -27,6 +27,12 @@ model JobApplication {
   status          ApplicationStatus @default(SAVED)
   appliedAt       DateTime?
   notes           String?
+
+  // The posting itself, pasted in. Kept beside the application because the ad
+  // is usually deleted or rewritten by the time an interview comes round, and
+  // it is the one thing you want in front of you while preparing.
+  jobDescription  String?
+
   isArchived      Boolean           @default(false)
 
   // Last time a follow-up reminder fired for this application. Guards the

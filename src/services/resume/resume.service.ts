@@ -3,6 +3,27 @@ import { ResumeRepository } from "../../repositories/resume/resume.repository";
 import { TemplateService } from "./template.service";
 import { BadRequestError, NotFoundError } from "../../lib/errors";
 
+const TITLE_MAX = 100;
+
+/*
+  "Tailored CV" -> "Tailored CV (Copy)" -> "Tailored CV (Copy 2)".
+
+  Duplicating a duplicate is the common case, not the edge one — that is the
+  whole point of the feature — so plain suffixing would leave people with
+  "(Copy) (Copy) (Copy)" by the third role they applied to.
+*/
+const nextCopyTitle = function (title: string) {
+  const match = title.match(/^(.*) \(Copy(?: (\d+))?\)$/);
+
+  const base = match?.[1] ?? title;
+  const nextIndex = match ? Number(match[2] ?? 1) + 1 : 1;
+  const suffix = nextIndex === 1 ? " (Copy)" : ` (Copy ${nextIndex})`;
+
+  // The column caps at 100, and the suffix is what carries the meaning, so the
+  // base is what gets trimmed.
+  return `${base.slice(0, TITLE_MAX - suffix.length).trim()}${suffix}`;
+};
+
 export class ResumeService {
   private resumeRepo = new ResumeRepository();
   private templateService = new TemplateService();
@@ -53,6 +74,35 @@ export class ResumeService {
       certifications: data.certifications,
       projects: data.projects,
       references: data.references,
+    });
+  }
+
+  /*
+    Deliberately free, not Pro. Building is always free and only the finished
+    PDF is paid (§12) — and one tailored resume per application is the whole
+    premise of the tracker, so charging to copy one would gate the workflow
+    rather than the deliverable.
+  */
+  async duplicateResume(resumeId: string, userId: string, title?: string) {
+    const source = await this.getResumeById(resumeId, userId);
+
+    return this.resumeRepo.create({
+      userId,
+      title: title?.trim() || nextCopyTitle(source.title),
+      templateId: source.templateId,
+      /*
+        Each section is spread only when it is non-null. Prisma rejects a plain
+        `null` for a nullable Json column — it wants Prisma.DbNull — so copying
+        a resume with empty sections would throw at the first unset one.
+      */
+      ...(source.personalInfo !== null && { personalInfo: source.personalInfo }),
+      ...(source.experience !== null && { experience: source.experience }),
+      ...(source.education !== null && { education: source.education }),
+      ...(source.skills !== null && { skills: source.skills }),
+      ...(source.languages !== null && { languages: source.languages }),
+      ...(source.certifications !== null && { certifications: source.certifications }),
+      ...(source.projects !== null && { projects: source.projects }),
+      ...(source.references !== null && { references: source.references }),
     });
   }
 

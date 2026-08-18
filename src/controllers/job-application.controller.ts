@@ -103,6 +103,7 @@ export class JobApplicationController {
         ...(payload.status && { status: payload.status }),
         ...(payload.appliedAt !== undefined && { appliedAt: payload.appliedAt ? new Date(payload.appliedAt) : null }),
         ...(payload.notes !== undefined && { notes: payload.notes }),
+        ...(payload.jobDescription !== undefined && { jobDescription: payload.jobDescription }),
         ...(payload.resumeId !== undefined && { resumeId: payload.resumeId }),
         ...(payload.coverLetterId !== undefined && { coverLetterId: payload.coverLetterId }),
         ...(payload.isArchived !== undefined && { isArchived: payload.isArchived }),

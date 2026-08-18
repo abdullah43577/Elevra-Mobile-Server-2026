@@ -37,6 +37,7 @@ export interface JobApplicationWriteData {
   status?: ApplicationStatus;
   appliedAt?: Date | null;
   notes?: string | null;
+  jobDescription?: string | null;
   resumeId?: string | null;
   coverLetterId?: string | null;
   isArchived?: boolean;

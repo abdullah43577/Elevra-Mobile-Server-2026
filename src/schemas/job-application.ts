@@ -16,6 +16,9 @@ export const createJobApplicationSchema = z.object({
   status: applicationStatus.optional(),
   appliedAt: z.iso.datetime().optional(),
   notes: z.string().max(5000).optional(),
+  // Roomier than notes: a pasted posting routinely runs past 5000 characters,
+  // and truncating one silently would lose the requirements at the bottom.
+  jobDescription: z.string().max(20000).optional(),
   resumeId: z.string().optional(),
   coverLetterId: z.string().optional(),
 });
@@ -33,6 +36,7 @@ export const updateJobApplicationSchema = z.object({
   status: applicationStatus.optional(),
   appliedAt: z.iso.datetime().nullable().optional(),
   notes: z.string().max(5000).nullable().optional(),
+  jobDescription: z.string().max(20000).nullable().optional(),
   resumeId: z.string().nullable().optional(),
   coverLetterId: z.string().nullable().optional(),
   isArchived: z.boolean().optional(),

@@ -93,6 +93,7 @@ export class JobApplicationService {
         ...(data.salaryMax !== undefined && { salaryMax: data.salaryMax }),
         ...(data.salaryCurrency && { salaryCurrency: data.salaryCurrency.toUpperCase() }),
         ...(data.notes && { notes: data.notes }),
+        ...(data.jobDescription && { jobDescription: data.jobDescription }),
         ...(data.resumeId && { resumeId: data.resumeId }),
         ...(data.coverLetterId && { coverLetterId: data.coverLetterId }),
       };

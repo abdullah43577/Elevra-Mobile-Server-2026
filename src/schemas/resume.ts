@@ -5,6 +5,10 @@ import { resumeDataSchema } from "./resume-data";
 // Template Schemas
 // ============================================
 
+export const duplicateResumeSchema = z.object({
+  title: z.string().min(1).max(100).optional(),
+});
+
 export const getTemplatesQuerySchema = z.object({
   category: z.string().optional(),
   isPremium: z

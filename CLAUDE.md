@@ -271,6 +271,7 @@ from the DB on every request.
 | Notifications | Done — model, CRUD, Expo push, device registration |
 | Career profile, cover letters, interview prep | Done — see §16, §17, §18 |
 | Global search | Done — see §19 |
+| Resume duplication, job descriptions | Done — see §20 |
 
 Open loose ends, roughly in priority order:
 
@@ -908,3 +909,68 @@ trigram or full-text indexes. Six of them run per debounced keystroke, scoped to
 one user's rows, which is fine at this size and is the first thing to revisit if
 search ever feels slow. `pg_trgm` + GIN indexes is the upgrade path, and it does
 not change the endpoint's shape.
+
+---
+
+## 20. Resume duplication and job descriptions
+
+Two small additions, both non-AI, both aimed at the same workflow: one tailored
+resume per application.
+
+### `POST /v1/resume/:id/duplicate`
+
+Copies a resume the caller owns and returns the new row, `201`. Optional
+`{ title }` overrides the generated name.
+
+It lives entirely in the **service** — `getResumeById` for the ownership check,
+then `resumeRepo.create`. No new repository method: a duplicate is a create, and
+adding a second write path would be somewhere else for the four-section data-loss
+bug in §16 to come back.
+
+**Not Pro-gated, deliberately.** Building is free and only the finished PDF is
+paid (§12). One tailored resume per role is the premise of the tracker, so
+charging to copy one would gate the workflow rather than the deliverable.
+
+Two things in it are easy to get wrong:
+
+- **Sections are spread only when non-null.** Prisma rejects a plain `null` for a
+  nullable Json column — it wants `Prisma.DbNull` — so copying a resume with any
+  unset section throws on the first one.
+- **`nextCopyTitle` counts rather than suffixes.** "Tailored CV" → "(Copy)" →
+  "(Copy 2)". Duplicating a duplicate is the *common* case here, not the edge
+  one, so plain suffixing leaves people with "(Copy) (Copy) (Copy)" by the third
+  role. The base is what gets trimmed against the 100-character column, since the
+  suffix is the part carrying the meaning.
+
+### `JobApplication.jobDescription`
+
+A nullable text column holding the posting, pasted in. Additive migration
+(`20260818155216_add_job_application_job_description`), no backfill.
+
+Capped at 20000 characters rather than the 5000 `notes` uses: a real posting
+routinely runs past 5000, and silently truncating one loses the requirements at
+the bottom — which is the half people re-read before an interview.
+
+It follows the `notes` shape exactly: `&&` spread on create, `!== undefined` on
+update so the field can be cleared. The client had a matching bug here worth
+knowing about — see `../elevra/CLAUDE.md` §25.
+
+---
+
+## 21. Clearing optional fields on update
+
+`updateCoverLetterSchema` was `createCoverLetterSchema.partial()`, which makes
+every optional field `string | undefined`. Combined with an omitted key already
+meaning "leave this alone", there was **no way for a client to say "I cleared
+this"** — a letter addressed to a named person could not be un-addressed, and the
+controller's `!== undefined` spreads had nothing to act on.
+
+The four clearable fields are now `.nullable()` via `.extend()` on top of the
+partial. Create stays non-nullable: there is nothing to clear on a row that does
+not exist yet, and accepting null there only widens what the service must handle.
+
+**Check this whenever an update schema is derived with `.partial()`.** It is the
+right default for required fields and the wrong one for anything the user is
+allowed to empty. `updateJobApplicationSchema` was already written out longhand
+with `.nullable()` on exactly those fields, which is why the tracker only needed
+a client fix while cover letters needed both sides.

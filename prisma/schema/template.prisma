@@ -57,7 +57,6 @@ model ResumeTheme {
   showDividers     Boolean?
   useIcons         Boolean?
   goldAccent       String?
-  showAwards       Boolean?
 
   templates        Template[]
   resumes          Resume[]

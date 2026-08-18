@@ -18,6 +18,7 @@ router.get("/:id", resumeController.getResumeById.bind(resumeController));
 router.post("/", resumeController.createResume.bind(resumeController));
 router.put("/:id", resumeController.updateResume.bind(resumeController));
 router.delete("/:id", resumeController.deleteResume.bind(resumeController));
+router.post("/:id/duplicate", resumeController.duplicateResume.bind(resumeController));
 router.post("/:id/export", resumeController.exportResume.bind(resumeController));
 
 export { router as resumeRouter };
