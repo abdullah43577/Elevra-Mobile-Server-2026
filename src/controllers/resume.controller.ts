@@ -178,7 +178,7 @@ export class ResumeController {
       const result = await this.resumeService.exportResume(id as string, userId!);
 
       res.status(200).json({
-        message: "Resume export started",
+        message: "Resume export recorded",
         data: result,
       });
     } catch (error) {

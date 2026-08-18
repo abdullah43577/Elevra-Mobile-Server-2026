@@ -88,19 +88,24 @@ export class ResumeService {
     return this.resumeRepo.delete(resumeId, userId);
   }
 
+  /*
+    Records an export. The PDF itself is produced on-device — the client builds
+    the resume HTML and hands it to expo-print, which uses the OS renderer to
+    emit real selectable text. Server-side rendering would mean shipping
+    Chromium alongside the API for something the phone already does well.
+
+    This endpoint exists so lastExportedAt is tracked and, once subscriptions
+    land, so export can be gated somewhere the client cannot bypass.
+  */
   async exportResume(resumeId: string, userId: string) {
     const resume = await this.getResumeById(resumeId, userId);
 
-    // Update last exported timestamp
     await this.resumeRepo.updateLastExported(resumeId, userId);
-
-    // TODO: Generate PDF
-    // This will be implemented when we add PDF generation
 
     return {
       resumeId,
+      title: resume.title,
       exportedAt: new Date().toISOString(),
-      message: "Export functionality coming soon",
     };
   }
 }

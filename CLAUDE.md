@@ -522,3 +522,20 @@ The `FontFamily` enum (`INTER`, `LORA`, `PLAYFAIR`…) is **not honoured**. The
 app only loads Bricolage Grotesque, so layouts differentiate through structure,
 weight, and colour. Either load the fonts or drop the enum; do not add a
 template that depends on it.
+
+
+---
+
+## 14. Resume export
+
+`POST /v1/resume/:id/export` **does not generate a PDF.** The client builds the
+resume HTML and hands it to `expo-print`, which uses the OS renderer to produce
+real selectable text. This endpoint only records `lastExportedAt`, and exists so
+export can be gated once subscriptions land (§12) somewhere the client cannot
+bypass.
+
+`resumeInclude` in `resume.repository.ts` **must keep `template` nested with its
+`theme`**. Every renderer — preview and export alike — reads
+`template.theme` for colours and spacing; a bare `template: true` hands the
+client an undefined theme and export throws on the first colour lookup. This bit
+once.
