@@ -472,21 +472,41 @@ it to a single worker or take a Redis lock first.
 
 ---
 
-## 12. Subscriptions — planned, not built
+## 12. Subscriptions — Phase 1 built
 
-Full plan and the free/paid split live in `../elevra/CLAUDE.md` §13. Server-side
-notes:
+Free/paid split and the remaining phases: `../elevra/CLAUDE.md` §13.
 
-- `UserSettings.subscriptionTier` is currently a loose `String` defaulting to
-  `"free"`. Phase 1 replaces it with a `SubscriptionTier` enum (`FREE` | `PRO`).
-- **The entitlement guard belongs in the service layer**, next to the existing
-  ownership checks — not in the controller. A guard in the controller is bypassed
-  the moment someone adds a second route to the same service method.
-- Phase 3 adds a `Subscription` model (provider, product id, status, period end,
-  original transaction id) fed by a **RevenueCat webhook**. Entitlement is
-  derived from that row. Never trust a tier sent by the client.
-- `Template.isPremium` already exists and is unused — it is the natural first
-  thing to gate.
+`UserSettings.subscriptionTier` is a `SubscriptionTier` enum (`FREE` | `PRO`).
+The migration converting it from `String` uses an explicit `USING` cast —
+Postgres refuses the type change without one, and Prisma would otherwise offer
+to drop the column.
+
+**`src/lib/entitlements.ts` owns the answer to "is this paid?"** — `PRO_FEATURES`
+plus `assertPro(userId, feature)`, which throws `PaymentRequiredError` (402).
+
+**Call `assertPro` from the SERVICE layer, not the controller.** A controller
+guard is bypassed the moment someone points a second route at the same service
+method. Currently guarded: `resume.service.exportResume` and
+`note.service.streamSummary`.
+
+**The SSE summary route is guarded twice, deliberately.** `SSEHelper`'s
+constructor flushes the event-stream headers, and after that the status code is
+fixed — a free user would get `200 OK` carrying an error event. So the
+controller checks *before* constructing the helper, purely so the status is an
+honest 402. The service check is the actual security boundary; do not remove
+either.
+
+**Not gated, on purpose:** notes, voice recordings, job applications, resumes,
+and every template. `Template.isPremium` stays unused — the catalogue was built
+around ATS quality, and charging for part of it means knowingly handing free
+users a worse resume when export is already the gate.
+
+Test a tier by flipping the column:
+`UPDATE "UserSettings" SET "subscriptionTier" = 'PRO';`
+
+Phase 3 will add a `Subscription` model (provider, product id, status, period
+end, original transaction id) fed by a **RevenueCat webhook**. Entitlement is
+derived from that row — never from a tier the client claims.
 
 
 ---

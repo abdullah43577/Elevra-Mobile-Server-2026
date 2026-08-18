@@ -1,3 +1,4 @@
+import { assertPro, PRO_FEATURES } from "../../lib/entitlements";
 import { ResumeRepository } from "../../repositories/resume/resume.repository";
 import { TemplateService } from "./template.service";
 import { BadRequestError, NotFoundError } from "../../lib/errors";
@@ -98,6 +99,8 @@ export class ResumeService {
     land, so export can be gated somewhere the client cannot bypass.
   */
   async exportResume(resumeId: string, userId: string) {
+    await assertPro(userId, PRO_FEATURES.RESUME_EXPORT);
+
     const resume = await this.getResumeById(resumeId, userId);
 
     await this.resumeRepo.updateLastExported(resumeId, userId);

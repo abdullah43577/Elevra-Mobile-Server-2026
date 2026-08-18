@@ -1,3 +1,8 @@
+enum SubscriptionTier {
+  FREE
+  PRO
+}
+
 enum Theme {
   SYSTEM
   LIGHT
@@ -10,5 +15,5 @@ model UserSettings {
   user            User    @relation(fields: [userId], references: [id])
   theme           Theme  @default(SYSTEM)
   notifications   Boolean @default(true)
-  subscriptionTier String @default("free")
+  subscriptionTier SubscriptionTier @default(FREE)
 }

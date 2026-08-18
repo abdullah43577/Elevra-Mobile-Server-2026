@@ -37,3 +37,9 @@ export class ConflictError extends AppError {
     super(message, 409);
   }
 }
+
+export class PaymentRequiredError extends AppError {
+  constructor(message = "This feature requires an Elevra Pro subscription") {
+    super(message, 402);
+  }
+}

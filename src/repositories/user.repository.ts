@@ -26,7 +26,7 @@ export class UserRepository {
     });
   }
 
-  async upsertUserSettings(userId: string, data: Partial<{ theme: $Enums.Theme; notifications: boolean; subscriptionTier: string }>) {
+  async upsertUserSettings(userId: string, data: Partial<{ theme: $Enums.Theme; notifications: boolean; subscriptionTier: $Enums.SubscriptionTier }>) {
     return prisma.userSettings.upsert({
       where: { userId },
       update: data,

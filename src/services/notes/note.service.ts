@@ -1,3 +1,4 @@
+import { assertPro, PRO_FEATURES } from "../../lib/entitlements";
 import { BadRequestError, NotFoundError } from "../../lib/errors";
 import { FolderRepository } from "../../repositories/notes/folder.repository";
 import { NoteRepository } from "../../repositories/notes/note.repository";
@@ -125,7 +126,14 @@ export class NoteService {
   /**
    * Stream the summary generation
    */
-  async streamSummary(text: string, onChunk: (chunk: string) => void): Promise<void> {
+  /*
+    Takes userId purely so the entitlement check lives here rather than in the
+    controller. A controller-only guard is bypassed the moment a second route
+    points at this method.
+  */
+  async streamSummary(userId: string, text: string, onChunk: (chunk: string) => void): Promise<void> {
+    await assertPro(userId, PRO_FEATURES.AI_NOTE_SUMMARY);
+
     await this.geminiService.generateSummaryStream(text, onChunk);
   }
 

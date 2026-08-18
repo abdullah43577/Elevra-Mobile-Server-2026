@@ -6,6 +6,7 @@ import { createNoteSchema, getNotesQuerySchema, updateNoteSchema } from "../../s
 import { stripHtml } from "../../lib/strip-html";
 import { SSEHelper } from "../../services/sse.service";
 import { NotificationService } from "../../services/notification.service";
+import { assertPro, PRO_FEATURES } from "../../lib/entitlements";
 
 export class NoteController {
   private noteService = new NoteService();
@@ -145,12 +146,26 @@ export class NoteController {
   }
 
   async generateSummaryStream(req: IUserRequest, res: Response) {
+    const { userId } = req;
+    const { id } = req.params;
+
+    /*
+      Checked before the SSEHelper exists. Its constructor flushes the
+      event-stream headers immediately, after which the status code is fixed —
+      a free user would get "200 OK" carrying an error event instead of a 402.
+      NoteService.streamSummary asserts again; that one is the security
+      boundary, this one is purely so the status code is honest.
+    */
+    try {
+      await assertPro(userId!, PRO_FEATURES.AI_NOTE_SUMMARY);
+    } catch (error) {
+      return handleErrors({ res, error });
+    }
+
     const sse = new SSEHelper(res);
     let isStreaming = true;
 
     try {
-      const { userId } = req;
-      const { id } = req.params;
 
       // Handle client disconnect
       sse.onDisconnect(() => {
@@ -176,7 +191,7 @@ export class NoteController {
       // Stream the summary from Gemini
       let fullSummary = "";
 
-      await this.noteService.streamSummary(plainText, (chunk: string) => {
+      await this.noteService.streamSummary(userId!, plainText, (chunk: string) => {
         if (!isStreaming) return;
         fullSummary += chunk;
         sse.sendChunk(chunk, fullSummary);
