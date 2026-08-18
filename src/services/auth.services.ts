@@ -6,6 +6,7 @@ import { UserRepository } from "../repositories/user.repository";
 import type { SignInFormValues, SignUpFormValues } from "../schemas/auth";
 import crypto from "crypto";
 import { redis } from "../lib/redis-connection";
+import { otpAttempts } from "../lib/rate-limit";
 import { MailService } from "./mail.service";
 import { CloudinaryService } from "./cloudinary.service";
 import { NotificationService } from "./notification.service";
@@ -146,11 +147,19 @@ export class AuthService {
     }
   }
 
+  /*
+    Always reports success, even for an address with no account.
+
+    Returning 404 here let anyone test an email and learn whether it is
+    registered — account enumeration, and a ready-made target list for
+    credential stuffing. The caller cannot tell the difference; only someone
+    with access to the inbox learns anything.
+  */
   async forgotPassword(email: string) {
     try {
       const user = await this.userRepo.findByEmail(email);
 
-      if (!user) throw new NotFoundError("User not found");
+      if (!user) return true;
 
       const otp = AuthService.generateOTP();
       const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
@@ -168,9 +177,68 @@ export class AuthService {
     }
   }
 
+  /*
+    Consumes the OTP that forgotPassword writes to `password-reset:{userId}`.
+
+    That key was being created and emailed but never read — there was no route
+    to consume it, so anyone who forgot their password was permanently locked
+    out after the app told them to check their inbox.
+
+    Deliberately does NOT reveal whether the email exists: an unknown address
+    and a wrong code return the same error, so this cannot be used to enumerate
+    accounts.
+  */
+  async resetPassword(email: string, otp: string, newPassword: string) {
+    try {
+      const user = await this.userRepo.findByEmail(email);
+      const invalid = new BadRequestError("That code is invalid or has expired");
+
+      if (!user) throw invalid;
+
+      // A six-digit code is only 1,000,000 possibilities. Without an attempt
+      // cap the reset flow is a viable route to account takeover.
+      if (await otpAttempts.isExhausted("password-reset", user.id)) {
+        await redis.del(`password-reset:${user.id}`);
+        throw new BadRequestError("Too many incorrect codes. Request a new one.");
+      }
+
+      const stored = await redis.get(`password-reset:${user.id}`);
+      if (!stored) throw invalid;
+
+      const hashedInput = crypto.createHash("sha256").update(otp).digest("hex");
+
+      if (hashedInput !== stored) {
+        await otpAttempts.record("password-reset", user.id, 600);
+        throw invalid;
+      }
+
+      const hashedPassword = await hashPassword(newPassword);
+      await this.userRepo.updateUser(user.id, {
+        password: hashedPassword,
+        // A successful reset proves ownership, so clear any login lockout.
+        failedLoginAttempts: 0,
+        isLocked: false,
+      });
+
+      await redis.del(`password-reset:${user.id}`);
+      await otpAttempts.clear("password-reset", user.id);
+
+      await this.mailService.sendPasswordChanged(user.email, {
+        name: user.first_name ?? user.last_name ?? "User",
+      });
+
+      return true;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async updatePassword(userId: string, currentPassword: string, newPassword: string) {
     try {
-      const user = await this.userRepo.findUniqueUser({ id: userId }, { id: true, password: true });
+      const user = await this.userRepo.findUniqueUser(
+        { id: userId },
+        { id: true, password: true, email: true, first_name: true, last_name: true },
+      );
 
       if (!user) throw new NotFoundError("User not found");
 
@@ -182,6 +250,10 @@ export class AuthService {
       const hashedPassword = await hashPassword(newPassword);
 
       await this.userRepo.updateUser(userId, { password: hashedPassword });
+
+      await this.mailService.sendPasswordChanged(user.email, {
+        name: user.first_name ?? user.last_name ?? "User",
+      });
 
       return true;
     } catch (error) {

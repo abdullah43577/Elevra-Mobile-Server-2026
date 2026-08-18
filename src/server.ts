@@ -3,6 +3,7 @@ import { configureApp } from "./config";
 import { registerRoutes } from "./routes";
 import { getEnv } from "./lib/get-env";
 import { startScheduler } from "./lib/scheduler";
+import { checkRedisHealth } from "./lib/redis-connection";
 
 const PORT = getEnv("PORT");
 
@@ -19,6 +20,8 @@ registerRoutes(app);
 const server = app.listen(PORT, async () => {
   try {
     console.log(`✅ Server started on http://localhost:${PORT}`);
+
+    await checkRedisHealth();
     startScheduler();
   } catch (error) {
     console.error("❌ Error starting server:", error);

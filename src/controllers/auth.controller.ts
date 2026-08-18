@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { AuthService } from "../services/auth.services";
 import type { IUserRequest } from "../interface";
-import { signInSchema, signUpSchema } from "../schemas/auth";
+import { signInSchema, signUpSchema, resetPasswordSchema } from "../schemas/auth";
 import { handleErrors } from "../lib/handle-errors";
 import { BadRequestError } from "../lib/errors";
 import type { UpdateProfile, UpdateSettings } from "../schemas/profile";
@@ -75,6 +75,18 @@ export class AuthController {
       await this.authService.forgotPassword(email);
 
       res.status(200).json({ message: "Reset Link sent to provided email address" });
+    } catch (error) {
+      handleErrors({ res, error });
+    }
+  }
+
+  async resetPassword(req: Request, res: Response) {
+    try {
+      const { email, otp, password } = resetPasswordSchema.parse(req.body);
+
+      await this.authService.resetPassword(email, otp, password);
+
+      res.status(200).json({ message: "Password reset successful" });
     } catch (error) {
       handleErrors({ res, error });
     }

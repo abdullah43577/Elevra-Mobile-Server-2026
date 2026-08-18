@@ -33,7 +33,7 @@ export const redis = new IORedis(config);
 
 // Add error handlers with rate limiting to reduce log spam
 let lastErrorLogTime = 0;
-const ERROR_LOG_INTERVAL = 300000000000000; // Only log errors every 30 seconds
+const ERROR_LOG_INTERVAL = 30_000; // 30s. Was 3e14 (~9,500 years), so errors logged once and never again.
 
 redis.on("error", err => {
   const now = Date.now();
@@ -52,3 +52,25 @@ redis.on("connect", () => {
 redis.on("ready", () => {
   console.log("✅ Redis ready to accept commands");
 });
+
+/*
+  Fails fast at boot rather than at the first OTP request.
+
+  Redis holds hashed OTPs and the rate-limit counters, so a dead Redis means
+  nobody can sign up, verify an email, or reset a password — but the API would
+  otherwise start cleanly and only reveal that when a user hit the flow.
+*/
+export const checkRedisHealth = async function () {
+  try {
+    const reply = await redis.ping();
+
+    if (reply !== "PONG") throw new Error(`Unexpected PING reply: ${reply}`);
+
+    console.log("✅ Redis health check passed");
+    return true;
+  } catch (error) {
+    console.error("❌ Redis health check FAILED:", error instanceof Error ? error.message : error);
+    console.error("   OTP verification, password reset, and rate limiting will not work.");
+    return false;
+  }
+};

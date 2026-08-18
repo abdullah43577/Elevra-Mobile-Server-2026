@@ -17,3 +17,21 @@ export const signUpSchema = z.object({
 });
 
 export type SignUpFormValues = z.infer<typeof signUpSchema>;
+
+const strongPassword = z
+  .string()
+  .min(8, "Password must be at least 8 characters")
+  .regex(/[A-Z]/, "Password must contain at least one uppercase letter")
+  .regex(/[0-9]/, "Password must contain at least one number");
+
+export const forgotPasswordSchema = z.object({
+  email: z.email("Please enter a valid email address"),
+});
+
+export const resetPasswordSchema = z.object({
+  email: z.email("Please enter a valid email address"),
+  otp: z.string().length(6, "Enter the 6-digit code"),
+  password: strongPassword,
+});
+
+export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;

@@ -272,12 +272,9 @@ from the DB on every request.
 
 Open loose ends, roughly in priority order:
 
-- No error-handling middleware (see §5 — causes the 401→500 bug).
-- CORS is commented out in `src/config.ts`.
-- No rate limiting on the OTP endpoints.
-- Redis startup health check.
-- Password-changed confirmation email.
+- Voice transcription endpoint exists but is unimplemented.
 - No queue system (BullMQ deferred until voice transcription needs it).
+- CORS is commented out in `src/config.ts` — **deliberate**, see §15.
 - No test suite. `npm run type-check` is the verification gate.
 
 ---
@@ -559,3 +556,76 @@ bypass.
 `template.theme` for colours and spacing; a bare `template: true` hands the
 client an undefined theme and export throws on the first colour lookup. This bit
 once.
+
+
+---
+
+## 15. Auth hardening
+
+### Password reset
+
+`POST /v1/auth/reset-password` consumes the OTP that `forgotPassword` writes to
+`password-reset:{userId}`. That key was previously created and emailed but
+**never read** — no route consumed it, so anyone who forgot their password was
+permanently locked out after the app told them to check their inbox.
+
+**Neither endpoint reveals whether an account exists.** `forgotPassword` returns
+success for unknown addresses, and `resetPassword` returns the same "invalid or
+expired" message for a wrong code and an unknown email. Returning 404 made both
+a free account-enumeration oracle and a ready-made target list for credential
+stuffing.
+
+A successful reset also clears `failedLoginAttempts`/`isLocked` — proving inbox
+ownership should lift a login lockout.
+
+### Two different limits, doing two different jobs
+
+**`rateLimit`** (`src/lib/rate-limit.ts`) caps request *volume* per window,
+keyed on IP **and** the submitted email so rotating IPs against one account is
+capped too. Redis-backed, so it holds across instances and survives deploys.
+It **fails open**: if Redis is unreachable the request proceeds, because a cache
+outage locking every user out of signing in is worse than briefly losing rate
+limiting.
+
+**`otpAttempts`** caps *guesses against a specific code* — 5, then the OTP is
+deleted outright. A six-digit code is only 1,000,000 possibilities, so on the
+reset path this is the difference between a nuisance and account takeover. The
+volume limiter alone only slows that down.
+
+Applied: signup/resend/forgot-password 3 per 10 min; verify-email and
+reset-password 10 per 10 min; signin 10 per 15 min.
+
+**`req.ip` is only trustworthy behind a configured proxy.** Nothing sets
+`app.set("trust proxy", ...)`, so once this runs behind nginx or a load balancer
+every request will share the proxy's IP and the IP half of each limit collapses
+into one bucket. The email half still works. Set trust proxy at deploy time.
+
+### Error middleware
+
+`registerRoutes` now ends with a **four-argument** error handler — Express
+identifies them by arity, and dropping `next` silently turns it into ordinary
+middleware that never runs. Without it, anything thrown outside a controller's
+try/catch fell through to Express's default handler and returned an **HTML**
+error page. `validateAccessToken`'s no-token branch does exactly that, so every
+expired session produced a 401 carrying HTML; the client read
+`error.response.data.message`, got `undefined`, and showed a generic failure.
+
+### Redis health check
+
+`checkRedisHealth()` PINGs at boot. Redis holds hashed OTPs and the rate-limit
+counters, so a dead Redis means nobody can sign up, verify, or reset — but the
+API would otherwise start cleanly and only reveal that when a user hit the flow.
+
+`ERROR_LOG_INTERVAL` in `redis-connection.ts` was `300000000000000` ms — the
+comment said 30 seconds, the value was ~9,500 years, so connection errors logged
+once and then never again. Now `30_000`.
+
+### CORS — deliberately off
+
+CORS is a **browser** mechanism; a React Native client does not enforce it, so
+it buys nothing for a native-only API. Adding a permissive `*` would be actively
+worse than none.
+
+`sse.service.ts` sets `Access-Control-Allow-Origin: *` on its own — the one
+place currently making a CORS promise. Harmless today (no browser reads it),
+but it is inconsistent; scope or remove it if CORS is ever configured properly.

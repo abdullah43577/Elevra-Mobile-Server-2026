@@ -1,4 +1,5 @@
-import type { Application, Request, Response } from "express";
+import type { Application, NextFunction, Request, Response } from "express";
+import { handleErrors } from "../lib/handle-errors";
 import { authRouter } from "./auth.routes";
 import { professionRouter } from "./profession.routes";
 import { noteRouter } from "./notes/note.routes";
@@ -20,7 +21,7 @@ export const registerRoutes = (app: Application) => {
   app.use("/v1/job-applications", jobApplicationRouter);
   app.use("/v1/notifications", notificationRouter);
 
-  // 404 fallback
+  // 404 fallback — must come before the error handler
   app.use((req: Request, res: Response) => {
     res.status(404).json({
       error: "Not Found",
@@ -30,5 +31,21 @@ export const registerRoutes = (app: Application) => {
         solution2: "ensure the relative paths to the server url is defined correctly",
       },
     });
+  });
+
+  /*
+    Error handler. Registered last, and Express identifies it by its four-arg
+    signature — dropping `next` silently turns it into ordinary middleware that
+    never runs.
+
+    Without this, anything thrown outside a controller's try/catch fell through
+    to Express's default handler, which replies with an HTML error page. The
+    no-token branch of validateAccessToken does exactly that, so every expired
+    session produced a 401 carrying HTML; the client reads
+    `error.response.data.message`, got undefined, and showed "An unexpected
+    error occurred" instead of anything useful.
+  */
+  app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    handleErrors({ res, error });
   });
 };

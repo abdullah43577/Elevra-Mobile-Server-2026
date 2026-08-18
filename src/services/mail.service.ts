@@ -1,5 +1,6 @@
 import { sendMail, type Attachment } from "../lib/send-mail";
 import { forgotPasswordTemplate } from "../lib/templates/forgot-password";
+import { passwordChangedTemplate } from "../lib/templates/password-changed";
 import { registrationTemplate } from "../lib/templates/registration-template";
 import { verifyEmailTemplate } from "../lib/templates/verify-email";
 import { welcomeTemplate } from "../lib/templates/welcome";
@@ -10,6 +11,14 @@ export class MailService {
       email: to,
       subject: "Reset your Elevra password",
       message: forgotPasswordTemplate(data),
+    });
+  }
+
+  async sendPasswordChanged(to: string, data: { name: string }) {
+    return sendMail({
+      email: to,
+      subject: "Your Elevra password was changed",
+      message: passwordChangedTemplate(data),
     });
   }
 
