@@ -29,8 +29,8 @@ export class TemplateRepository {
   }
 
   // Admin methods (for seeding)
-  async create(data: { name: string; description?: string; thumbnail: string; category: string; layoutKey: string; themeId: string; defaultData: any; sections?: any; styles?: any; isPremium?: boolean }) {
-    const { name, description, thumbnail, category, layoutKey, themeId, defaultData, sections, styles, isPremium } = data;
+  async create(data: { name: string; description?: string; category: string; layoutKey: string; themeId: string; defaultData: any; sections?: any; styles?: any; isPremium?: boolean }) {
+    const { name, description, category, layoutKey, themeId, defaultData, sections, styles, isPremium } = data;
 
     return prisma.template.create({
       data: {
@@ -39,7 +39,6 @@ export class TemplateRepository {
         layoutKey,
         themeId,
         defaultData,
-        thumbnail,
         ...(description && { description }),
         ...(sections && { sections }),
         ...(styles && { styles }),
@@ -52,13 +51,6 @@ export class TemplateRepository {
     return prisma.template.createMany({
       data: templates,
       skipDuplicates: true,
-    });
-  }
-
-  async updateThumbnail(id: string, thumbnailUrl: string) {
-    return prisma.template.update({
-      where: { id },
-      data: { thumbnail: thumbnailUrl },
     });
   }
 }

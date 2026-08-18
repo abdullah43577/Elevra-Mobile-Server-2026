@@ -269,6 +269,8 @@ from the DB on every request.
 | Resumes, templates, export | Done |
 | Job Application Tracker | Done — see §8 |
 | Notifications | Done — model, CRUD, Expo push, device registration |
+| Career profile, cover letters, interview prep | Done — see §16, §17, §18 |
+| Global search | Done — see §19 |
 
 Open loose ends, roughly in priority order:
 
@@ -813,3 +815,96 @@ It is `audioUrl` + `audioDuration` on the answer. A rehearsal take is not a voic
 memo, and filing every take into the user's Voice Notes list would bury their
 actual recordings. Upload reuses `CloudinaryService.uploadFile` under an
 `interview-answers` folder.
+
+---
+
+## 19. Global search
+
+One endpoint across every content type the user owns. `GET /v1/search?q=&limit=`,
+four files in the usual layering, no new model and no migration.
+
+```
+src/schemas/search.ts        query schema + SEARCH_RESULT_TYPES
+src/repositories/search.repository.ts   six scoped queries, narrow selects
+src/services/search.service.ts          normalise, rank, count
+src/controllers/search.controller.ts
+src/routes/search.routes.ts             /v1/search
+```
+
+### The response is normalised, and its type names are the client's
+
+Every hit becomes the same `{ id, type, title, subtitle?, snippet?, updatedAt }`.
+`type` is one of `Note | Recording | Resume | Application | CoverLetter |
+InterviewQuestion` — **the keys of the client's `CONTENT_META` verbatim**, not a
+server-side naming. That is what lets the search screen read
+`CONTENT_META[result.type]` for the row's icon, colour and label instead of
+carrying a translation table that would drift the first time a content type is
+added.
+
+`counts` is a per-type tally for the client's filter chips, and comes from the
+returned rows rather than six extra `COUNT` queries. Each type is capped at
+`limit` (default 20), so a user with more than 20 matching notes sees 20 — worth
+it to avoid doubling the query load on every debounced keystroke for a number
+that only labels a chip.
+
+### There is no `types` filter, deliberately
+
+The client's chips narrow what it already holds. They have to show a count for
+every type to be usable as a map of what was found, and asking the server for one
+type would zero out the other five the moment a chip was tapped. The trade is
+that filtering to Notes can only ever show the 20 that came back; past that the
+answer is a better query, not a longer list.
+
+### What is searched, and the three things that are not
+
+| Type | Matched on |
+| --- | --- |
+| Note | `title`, `content` — **including archived** |
+| Recording | `title`, `transcription` |
+| Resume | `title` only |
+| Application | `company`, `role`, `location`, `source`, `notes` — **including archived** |
+| CoverLetter | `title`, `company`, `role`, `body` |
+| InterviewQuestion | question `text` and the user's answer `text` |
+
+**Resume bodies are not searched.** The sections live in Json columns, and
+reaching them means casting to text in raw SQL — which matches the *keys* as well
+as the values, so "company", "title", "location" or "description" would return
+every resume the user owns. A false positive on every generic term is worse than
+not searching the body at all.
+
+**The interview bank is scoped to the user.** Only questions they wrote or have
+answered. Global search finds *your* material; a seeded question never opened is
+not yours yet, and matching all 50 on a word like "team" would bury the notes and
+applications someone was actually looking for. Browsing the catalogue is what the
+interview-prep screen's own search is for.
+
+**Archived rows are included** even though their list screens exclude them.
+Search is otherwise the only way to reach something archived without first
+knowing where it was filed. The service marks them (`subtitle: "Archived"`) so
+they do not read as live rows.
+
+### Ranking is two-tier, not scored
+
+A match on the thing's *name* outranks a match buried in a body — the first is
+what the user typed, the second is a lead. Within a tier the most recently
+touched wins, which is the ordering every list in the app already uses. A scored
+relevance model would be guessing at weights with no data to tune them.
+
+Interview results are dated by the **answer**, not the question: the seeded
+catalogue never changes, so `question.updatedAt` would sort every bank row
+identically.
+
+### Two known limits, both accepted
+
+`contains` runs against **raw stored content**, so a note's tentap HTML is in
+scope: searching "span" or "href" can match a note whose visible text contains
+neither. The 2-character floor on `q` is where this is worst, and in practice
+people search words rather than element names. `stripMarkup` fixes the *display*
+half — without it a snippet renders as `<p>Spoke to the</p>` — but not the
+matching half.
+
+`contains` with `mode: "insensitive"` is a sequential scan; there are no
+trigram or full-text indexes. Six of them run per debounced keystroke, scoped to
+one user's rows, which is fine at this size and is the first thing to revisit if
+search ever feels slow. `pg_trgm` + GIN indexes is the upgrade path, and it does
+not change the endpoint's shape.

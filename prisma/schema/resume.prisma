@@ -14,7 +14,6 @@ model Resume {
   certifications Json?
   projects       Json?
   references     Json?
-  awards         Json? 
 
   customThemeId  String?
   customTheme    ResumeTheme?    @relation(fields: [customThemeId], references: [id])

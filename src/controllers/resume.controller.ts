@@ -4,13 +4,10 @@ import { TemplateService } from "../services/resume/template.service";
 import type { IUserRequest } from "../interface";
 import { handleErrors } from "../lib/handle-errors";
 import { createResumeSchema, getTemplatesQuerySchema, updateResumeSchema } from "../schemas/resume";
-import { CloudinaryService } from "../services/cloudinary.service";
-import { BadRequestError } from "../lib/errors";
 
 export class ResumeController {
   private resumeService = new ResumeService();
   private templateService = new TemplateService();
-  private cloudinaryService = new CloudinaryService();
 
   // ==================== Templates ====================
 
@@ -40,35 +37,6 @@ export class ResumeController {
 
       res.status(200).json({
         message: "Template retrieved successfully",
-        data: template,
-      });
-    } catch (error) {
-      handleErrors({ res, error });
-    }
-  }
-
-  async uploadThumbnail(req: IUserRequest, res: Response) {
-    try {
-      const { id } = req.params;
-      const file = req.file;
-
-      if (!file) throw new BadRequestError("No image file provided");
-
-      // Only admin can upload thumbnails (or use a secret key)
-      // For now, we'll trust the user (you can add admin check later)
-
-      // Upload to Cloudinary
-      const result = await this.cloudinaryService.uploadFile(
-        "templates", // folder
-        file,
-        "auto",
-      );
-
-      // Update template with thumbnail URL
-      const template = await this.templateService.updateThumbnail(id as string, result.secure_url);
-
-      res.status(200).json({
-        message: "Thumbnail uploaded successfully",
         data: template,
       });
     } catch (error) {

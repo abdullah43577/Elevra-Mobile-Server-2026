@@ -83,9 +83,6 @@ model Template {
   // Sample resume content used to render the template's preview/thumbnail.
   defaultData Json
 
-  // Static thumbnail URL (generated once via react-native-view-shot + Cloudinary)
-  thumbnail   String?    // Cloudinary URL
-
   isPremium   Boolean    @default(false)
   isActive    Boolean    @default(true)
 
