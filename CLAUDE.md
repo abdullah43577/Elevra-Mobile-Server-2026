@@ -740,3 +740,76 @@ null link.
 `src/schemas/resume-data.ts` now backs three domains — `Resume`,
 `CareerProfile`, and `CoverLetter.personalInfo`. Keep it in step with
 `../elevra/types/resume/data.ts`.
+
+---
+
+## 18. Interview prep
+
+Base path `/v1/interview-prep`. Client side is in `../elevra/CLAUDE.md` §19.
+
+| Method | Path | Notes |
+| --- | --- | --- |
+| GET | `/` | `?category=&status=&search=&applicationId=&unanswered=` — each question carries the caller's own answer |
+| GET | `/stats` | readiness counts + rehearsals in the last 7 days |
+| POST | `/practice` | records a whole run in one call |
+| POST · GET · PUT · DELETE | `/`, `/:id` | user-authored questions only for write |
+| PUT | `/:id/answer` | upsert |
+| POST · DELETE | `/:id/answer/audio` | multipart via `upload.single("audio")` → Cloudinary |
+| POST · DELETE | `/:id/applications/:applicationId` | pin a question to an application |
+
+### The catalogue is shared, which breaks one house rule on purpose
+
+Every other repository scopes every query by `userId`. `InterviewQuestion` cannot:
+seeded rows belong to nobody and must be visible to everybody, so reads are
+scoped `{ isActive: true, OR: [{ userId: null }, { userId }] }` via `visibleTo()`.
+
+That means **"can read" and "can write" are different checks here**, and the gap
+is the whole authorisation surface of this domain. `assertQuestionOwned` guards
+every write and answers 403 for a seeded question, 404 for one that does not
+exist. Without it any user could edit the shared catalogue for every other user.
+Verified: seeded questions 403 on update and delete; a user's own custom question
+is invisible to a second account.
+
+Answers are still scoped normally, on `@@unique([userId, questionId])`.
+
+### Why the bank is seeded by category, not by role
+
+`prisma/seed-interview-questions.ts` holds 50 questions across six categories.
+There is deliberately **no per-role tagging and no `professionId` column**.
+
+Per-role coverage is an endless content treadmill: thousands of job titles, each
+needing curation, all going stale. It would ship thin and read worse than
+nothing. The questions actually worth rehearsing — behavioural, situational,
+motivation — are role-agnostic anyway. Role-specific technical questions are the
+user's to add or, once the AI backend lands, AI's to generate.
+
+Every row carries `guidance`: one line on what a strong answer covers. A bare
+question with no coaching is the browsable-bank failure mode the whole feature
+exists to avoid. Rows are matched on `seedKey`, so re-running the seed updates in
+place rather than duplicating the catalogue.
+
+```bash
+npx tsx prisma/seed-interview-questions.ts
+```
+
+### Practice is reported once, at the end
+
+`POST /practice` takes the whole run's `questionIds`. Per-question requests would
+leave a session half recorded on a bad connection — and rehearsing is exactly
+when someone is on a train.
+
+The service creates missing answer rows before incrementing. Without that, a
+question someone rehearsed out loud but never wrote down would never register as
+practised, and that group is precisely what the client's ordering is built to
+surface.
+
+`practiceCount` and `lastPracticedAt` live on the answer rather than in a
+sessions table — they give the client its prioritisation and the stats endpoint
+its numbers, and a `PracticeSession` model nothing reads would be scaffolding.
+
+### Answer audio is not a VoiceRecording
+
+It is `audioUrl` + `audioDuration` on the answer. A rehearsal take is not a voice
+memo, and filing every take into the user's Voice Notes list would bury their
+actual recordings. Upload reuses `CloudinaryService.uploadFile` under an
+`interview-answers` folder.

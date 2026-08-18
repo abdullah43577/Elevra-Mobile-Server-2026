@@ -51,6 +51,7 @@ model JobApplication {
   coverLetterId String?
   coverLetter   CoverLetter? @relation(fields: [coverLetterId], references: [id], onDelete: SetNull)
 
+  linkedQuestions  ApplicationQuestion[]
   linkedNotes      ApplicationNote[]
   linkedRecordings ApplicationRecording[]
 

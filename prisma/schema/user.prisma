@@ -54,4 +54,6 @@ model User {
   notifications   Notification[]
   careerProfile   CareerProfile?
   coverLetters    CoverLetter[]
+  interviewQuestions InterviewQuestion[]
+  interviewAnswers   InterviewAnswer[]
 }

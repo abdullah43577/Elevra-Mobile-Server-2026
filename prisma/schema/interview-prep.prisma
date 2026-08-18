@@ -1,0 +1,111 @@
+enum InterviewCategory {
+  BACKGROUND
+  BEHAVIOURAL
+  SITUATIONAL
+  MOTIVATION
+  STRENGTHS
+  CLOSING
+}
+
+enum AnswerStatus {
+  DRAFT
+  NEEDS_WORK
+  READY
+}
+
+/*
+  The question bank is seeded globally and tagged by CATEGORY, not by job title.
+
+  Per-role seeding was considered and rejected: there are thousands of titles, so
+  coverage is an endless content treadmill that ships thin and goes stale. The
+  questions worth rehearsing — behavioural, situational, motivation — are
+  role-agnostic anyway. Genuinely role-specific technical questions belong to the
+  user (isCustom) or, later, to AI generation.
+
+  `userId` is null for the seeded catalogue and set for a question the user wrote
+  themselves.
+
+  There is deliberately no professionId column. Role steering is a real future
+  idea, but a column nothing reads is dead scaffolding — the same call made
+  against `links` on CareerProfile. Add it when something uses it.
+*/
+model InterviewQuestion {
+  id           String            @id @default(cuid())
+  text         String
+  category     InterviewCategory
+  // One line on what a strong answer actually covers. Shown while rehearsing —
+  // a bare question with no coaching is the browsable-bank failure mode.
+  guidance     String?
+
+  userId       String?
+  user         User?             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Seeded rows are matched on this so re-running the seed updates in place
+  // instead of duplicating the catalogue.
+  seedKey      String?           @unique
+
+  isActive     Boolean           @default(true)
+  sortOrder    Int               @default(0)
+
+  answers      InterviewAnswer[]
+  applications ApplicationQuestion[]
+
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([userId])
+  @@index([category])
+}
+
+/*
+  One answer per user per question — answers are a reusable personal asset, not a
+  per-application copy. Your story about handling conflict does not change per
+  company, and re-answering it for every application is exactly the retyping
+  problem the career profile exists to kill.
+
+  Audio lives here as a plain url rather than as a VoiceRecording row: a
+  rehearsal take is not a voice memo, and filing every one of them into the Voice
+  Notes list would bury the user's actual recordings.
+*/
+model InterviewAnswer {
+  id             String            @id @default(cuid())
+  userId         String
+  user           User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  questionId     String
+  question       InterviewQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  text           String?
+  audioUrl       String?
+  audioDuration  Int?
+
+  status         AnswerStatus      @default(DRAFT)
+
+  // Drives the practice runner's ordering: least-rehearsed and least-recent
+  // first, so the questions you keep avoiding are the ones it puts in front of
+  // you. This is what makes it a tool rather than a list.
+  practiceCount  Int               @default(0)
+  lastPracticedAt DateTime?
+
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([userId, questionId])
+  @@index([userId])
+  @@index([status])
+}
+
+// Pins a subset of the bank to one application, for rehearsing before a
+// specific interview.
+model ApplicationQuestion {
+  id            String            @id @default(cuid())
+  applicationId String
+  questionId    String
+  application   JobApplication    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  question      InterviewQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime          @default(now())
+
+  @@unique([applicationId, questionId])
+  @@index([questionId])
+}
