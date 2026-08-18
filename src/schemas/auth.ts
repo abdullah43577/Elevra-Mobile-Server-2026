@@ -1,5 +1,14 @@
 import z from "zod";
 
+/*
+  Optional because an account with no password (a future OAuth provider) has
+  nothing to verify against. Whether it is *required* is the service's call —
+  that is the only layer that knows how the account was created.
+*/
+export const deleteAccountSchema = z.object({
+  password: z.string().min(1).optional(),
+});
+
 export const signInSchema = z.object({
   email: z.email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),

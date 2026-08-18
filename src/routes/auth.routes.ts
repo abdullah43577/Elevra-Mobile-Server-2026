@@ -53,6 +53,9 @@ router.post("/reset-password", otpLimiter, authController.resetPassword.bind(aut
 router.get("/profile", validateAccessToken, authController.getProfile.bind(authController));
 router.patch("/profile", validateAccessToken, upload.single("profile_pic"), authController.updateProfile.bind(authController));
 router.post("/profile/settings", validateAccessToken, authController.updateProfileSettings.bind(authController));
+// DELETE rather than a "deactivate" POST: the row really goes, and every store
+// requires account deletion to be reachable from inside the app.
+router.delete("/account", validateAccessToken, authController.deleteAccount.bind(authController));
 router.post("/token", validateRefreshToken, authController.generateNewToken.bind(authController));
 
 export { router as authRouter };

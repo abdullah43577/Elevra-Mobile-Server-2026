@@ -59,6 +59,10 @@ export class UserRepository {
     return prisma.user.findUnique({ where, ...(select && { select }) });
   }
 
+  async deleteUser(id: string) {
+    return prisma.user.delete({ where: { id } });
+  }
+
   async findManyByEmails(emails: string[], select?: Prisma.UserSelect) {
     return prisma.user.findMany({
       where: { email: { in: emails } },

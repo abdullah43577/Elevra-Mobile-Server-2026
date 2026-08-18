@@ -272,6 +272,7 @@ from the DB on every request.
 | Career profile, cover letters, interview prep | Done — see §16, §17, §18 |
 | Global search | Done — see §19 |
 | Resume duplication, job descriptions | Done — see §20 |
+| Account deletion | Done — see §22 |
 
 Open loose ends, roughly in priority order:
 
@@ -974,3 +975,44 @@ right default for required fields and the wrong one for anything the user is
 allowed to empty. `updateJobApplicationSchema` was already written out longhand
 with `.nullable()` on exactly those fields, which is why the tracker only needed
 a client fix while cover letters needed both sides.
+
+---
+
+## 22. Account deletion
+
+`DELETE /v1/auth/account`, authenticated, `204`. Both stores require an account
+that can be created in-app to be deletable in-app (Apple 5.1.1(v) is the one
+that gets apps rejected), so this is a submission requirement rather than a
+feature.
+
+**It is a hard delete, not a status flag.** `AccountStatus` exists and would have
+been the cheaper route, but a soft delete leaves the data on our servers, which
+is precisely what the user asked us not to do. One `prisma.user.delete` is enough
+because every owned model declares `onDelete: Cascade` on its `userId` — notes,
+folders, tags, resumes, recordings, applications, letters, questions, answers,
+settings and notifications all go with the row.
+
+**The password is the safeguard.** An unlocked phone in the wrong hands should
+not be able to erase someone's work in two taps. Accounts with a null `password`
+(a future OAuth provider) skip the check, since there is nothing to compare
+against — which is why `deleteAccountSchema` marks it optional and the *service*
+decides whether it is required. The schema layer does not know how the account
+was created.
+
+### Uploaded files are destroyed first, and the coverage is partial
+
+Voice recordings carry a Cloudinary `publicId`, so they are destroyed before the
+rows cascade away — afterwards the handles are gone and the files are orphaned
+forever. Deleting the record of someone's voice memos while leaving the audio
+hosted would defeat the point.
+
+`CloudinaryService.destroyMany` is best-effort and **never throws**: a Cloudinary
+outage must not block someone from deleting their account.
+
+**Two gaps, both structural.** Profile pictures and interview answer audio store
+a URL but no `publicId`, so they cannot be destroyed by handle. Add a publicId
+column to either and it can join this call. Worth doing before launch if the
+privacy policy promises full erasure.
+
+No confirmation email is sent — there is no template for it, and the address is
+gone by the time it would send. Worth adding with a pre-delete send if it matters.

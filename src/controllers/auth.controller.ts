@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { AuthService } from "../services/auth.services";
 import type { IUserRequest } from "../interface";
-import { signInSchema, signUpSchema, resetPasswordSchema } from "../schemas/auth";
+import { signInSchema, signUpSchema, resetPasswordSchema, deleteAccountSchema } from "../schemas/auth";
 import { handleErrors } from "../lib/handle-errors";
 import { BadRequestError } from "../lib/errors";
 import type { UpdateProfile, UpdateSettings } from "../schemas/profile";
@@ -123,6 +123,19 @@ export class AuthController {
 
       const result = await this.authService.updateProfileSettings(userId as string, data);
       res.status(200).json({ message: "Profile settings updated successfully!", data: result });
+    } catch (error) {
+      handleErrors({ res, error });
+    }
+  }
+
+  async deleteAccount(req: IUserRequest, res: Response) {
+    try {
+      const { userId } = req;
+      const { password } = deleteAccountSchema.parse(req.body ?? {});
+
+      await this.authService.deleteAccount(userId!, password);
+
+      res.status(204).json({ message: "Account deleted successfully" });
     } catch (error) {
       handleErrors({ res, error });
     }

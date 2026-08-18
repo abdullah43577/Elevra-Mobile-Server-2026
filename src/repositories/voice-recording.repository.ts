@@ -2,6 +2,16 @@ import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
 
 export class VoiceRecordingRepository {
+  // Account deletion needs the Cloudinary handles before the rows cascade away.
+  async findPublicIdsByUser(userId: string) {
+    const rows = await prisma.voiceRecording.findMany({
+      where: { userId, publicId: { not: null } },
+      select: { publicId: true },
+    });
+
+    return rows.map(row => row.publicId!).filter(Boolean);
+  }
+
   async findManyByUser(
     userId: string,
     options?: {

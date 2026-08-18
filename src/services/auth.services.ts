@@ -9,6 +9,7 @@ import { redis } from "../lib/redis-connection";
 import { otpAttempts } from "../lib/rate-limit";
 import { MailService } from "./mail.service";
 import { CloudinaryService } from "./cloudinary.service";
+import { VoiceRecordingRepository } from "../repositories/voice-recording.repository";
 import { NotificationService } from "./notification.service";
 import type { UpdateProfile, UpdateSettings } from "../schemas/profile";
 
@@ -17,6 +18,7 @@ export class AuthService {
   private mailService = new MailService();
   private cloudinaryService = new CloudinaryService();
   private notificationService = new NotificationService();
+  private voiceRecordingRepo = new VoiceRecordingRepository();
   private static generateOTP = () => crypto.randomInt(100000, 1000000).toString();
 
   async register(data: SignUpFormValues) {
@@ -254,6 +256,53 @@ export class AuthService {
       await this.mailService.sendPasswordChanged(user.email, {
         name: user.first_name ?? user.last_name ?? "User",
       });
+
+      return true;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  /*
+    Deleting the account is a right, not a request, so this is a hard delete of
+    the row rather than a status flag. Every owned model declares
+    `onDelete: Cascade` on its userId, which is what makes one delete enough —
+    notes, resumes, applications, letters, answers, settings and notifications
+    all go with it.
+
+    The password check is the safeguard: an unlocked phone in the wrong hands
+    should not be able to erase someone's work in two taps. Accounts with no
+    password (a future OAuth provider) skip it, since there is nothing to check.
+  */
+  async deleteAccount(userId: string, password?: string) {
+    try {
+      const user = await this.userRepo.findUniqueUser({ id: userId }, { id: true, password: true });
+
+      if (!user) throw new NotFoundError("User not found");
+
+      if (user.password) {
+        if (!password) throw new BadRequestError("Password is required to delete your account");
+
+        const isMatch = await comparePassword(password, user.password);
+        if (!isMatch) throw new BadRequestError("Password Invalid");
+      }
+
+      /*
+        Uploaded audio is destroyed before the rows go, because the publicIds
+        live on those rows and are unrecoverable afterwards. Deleting the record
+        of someone's voice memos while leaving the files hosted would defeat the
+        point of the feature.
+
+        Two gaps, both structural: profile pictures and interview answer audio
+        store a URL but no publicId, so they cannot be destroyed by handle. Add
+        a publicId column to either and they can join this.
+      */
+      const publicIds = await this.voiceRecordingRepo.findPublicIdsByUser(userId);
+      if (publicIds.length) {
+        await this.cloudinaryService.destroyMany(publicIds, "auto");
+      }
+
+      await this.userRepo.deleteUser(userId);
 
       return true;
     } catch (error) {

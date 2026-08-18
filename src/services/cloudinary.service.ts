@@ -35,6 +35,20 @@ export class CloudinaryService {
     }
   }
 
+  /*
+    Best-effort bulk destroy, for account deletion. Unlike deleteFile it touches
+    no database row — the rows are about to be cascaded away — and it never
+    throws: a Cloudinary outage must not block someone from deleting their
+    account, which is a right rather than a request.
+  */
+  async destroyMany(publicIds: string[], resource_type: "avatar" | "auto") {
+    await Promise.all(
+      publicIds.map(publicId =>
+        cloudinary.uploader.destroy(publicId, { resource_type }).catch(() => undefined),
+      ),
+    );
+  }
+
   async deleteFile({ userId, publicId, resource_type, nullifyFields }: { userId: string; publicId: string; resource_type: "avatar" | "auto"; nullifyFields?: (keyof Prisma.UserUpdateInput)[] }) {
     try {
       const nullifyData = nullifyFields?.length ? (Object.fromEntries(nullifyFields.map(f => [f, null])) as Prisma.UserUpdateInput) : {};
