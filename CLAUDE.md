@@ -273,6 +273,7 @@ from the DB on every request.
 | Global search | Done — see §19 |
 | Resume duplication, job descriptions | Done — see §20 |
 | Account deletion | Done — see §22 |
+| Subscriptions Phase 3 (pull-based) | Done — see §23 |
 
 Open loose ends, roughly in priority order:
 
@@ -1016,3 +1017,59 @@ privacy policy promises full erasure.
 
 No confirmation email is sent — there is no template for it, and the address is
 gone by the time it would send. Worth adding with a pre-delete send if it matters.
+
+---
+
+## 23. Subscriptions Phase 3 — entitlement by pull, not webhook
+
+`/v1/subscriptions` (read) and `/v1/subscriptions/sync` (pull). No webhook
+endpoint: entitlement is pulled from RevenueCat with the `sk_` key rather than
+pushed to us. That was a deliberate call — a webhook needs a publicly reachable
+URL, which localhost is not, and pulling is testable today.
+
+Needs two env vars: `REVENUE_CAT_SECRET` (a v2 `sk_` key scoped to
+`customer_information`) and `REVENUE_CAT_PROJECT_ID` — every v2 path is
+`/v2/projects/{project_id}/customers/{customer_id}/...`, so the id is not
+optional.
+
+### The client never says what it bought
+
+`POST /sync` takes **no body**. It asks the server to go and look; the server
+calls RevenueCat's `active_entitlements` endpoint keyed by our own user id and
+derives the tier itself. A client claiming "I am pro" is untrusted input, and
+this is the one design rule the whole slice exists to protect.
+
+That is also why the mobile SDK's `customerInfo` is ignored as an authority even
+though it is correct — it reaches us through the client.
+
+### The rules that matter more than the plumbing
+
+**A failed pull never downgrades anyone.** `RevenueCatUnavailableError` is a
+distinct type from "this customer has no entitlements" precisely so the two
+cannot be confused. Revoking paid access every time the network blinks is far
+worse than serving a few hours that have technically lapsed.
+
+**A 404 from RevenueCat is not an error.** It means the customer has never been
+seen, which is the normal state for anyone who has not opened a paywall. It
+resolves to an empty entitlement list.
+
+**`syncSubscription` never throws on an unreachable RevenueCat.** The client
+calls it on every launch, so throwing would mean a 500 and an error toast on
+every cold start whenever the network blinks or the project id is missing. It
+falls back to the stored copy and marks it `isFresh: false`.
+
+**`expires_at: null` means non-expiring, not unknown.** A lifetime purchase and
+a promotional grant both look like that. Unknown is `lastSyncedAt` being null.
+
+### Where the tier lives, and why there are two places
+
+`UserSettings.subscriptionTier` is still what every gate reads — `assertPro` must
+stay one cheap column lookup, not a network call. The new `Subscription` row is
+the *evidence*: the entitlement id, when it expires, and when we last checked.
+Those two fields are what make polling affordable, because the read path can
+serve the stored copy and only pull again when it is stale (6 hours) or expired.
+
+**The cost of pull-only:** a lapse is caught at the next sync, so the worst case
+is one app launch of access that has already ended. A webhook would close that
+window. If it ever matters, the endpoint to add is a webhook that calls the same
+`pullFromRevenueCat` — none of the derivation logic changes.

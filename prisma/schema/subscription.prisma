@@ -1,0 +1,31 @@
+/*
+  What RevenueCat last told us about this user's entitlement.
+
+  It exists alongside UserSettings.subscriptionTier rather than replacing it:
+  the tier is what every gate reads and must stay a single cheap column lookup,
+  while this row is the evidence behind it — when it expires, and when we last
+  checked. Those two facts are what make a pull-based design affordable, because
+  without them every check would have to ask RevenueCat again.
+*/
+model Subscription {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // The RevenueCat entitlement identifier, e.g. "pro". Not the product: a plan
+  // change swaps products and must never touch the entitlement the app checks.
+  entitlementId String?
+
+  isActive Boolean @default(false)
+
+  // Null while active means a lifetime or non-expiring grant, not "unknown" —
+  // an unknown state is represented by lastSyncedAt being null.
+  expiresAt DateTime?
+
+  lastSyncedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
