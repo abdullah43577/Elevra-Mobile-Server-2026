@@ -2,14 +2,16 @@ import { getEnv } from "./get-env";
 
 const API_BASE = "https://api.revenuecat.com/v2";
 
-/*
-  The entitlement identifier configured in the RevenueCat dashboard. The app
-  checks this, never a product id — a plan change swaps products, and anything
-  reading product ids would break the moment pricing moves.
-*/
-export const PRO_ENTITLEMENT_ID = "pro";
-
 export interface ActiveEntitlement {
+  /*
+    **This is RevenueCat's internal object id (`entl...`), not the `pro` lookup
+    key you type into the dashboard.** Verified against the live API: a customer
+    holding the `pro` entitlement comes back as
+    `{ entitlement_id: "entl55f1cfa7eb", ... }`.
+
+    Comparing it to "pro" is what silently kept a paying customer on FREE — the
+    purchase registered correctly and the match simply never hit.
+  */
   entitlement_id: string;
   expires_at: number | null;
 }

@@ -1042,6 +1042,31 @@ this is the one design rule the whole slice exists to protect.
 That is also why the mobile SDK's `customerInfo` is ignored as an authority even
 though it is correct — it reaches us through the client.
 
+### `entitlement_id` is not the lookup key — this cost a real bug
+
+The v2 `active_entitlements` response returns the entitlement's **internal
+object id**, not the `pro` lookup key configured in the dashboard:
+
+```json
+{ "items": [{ "entitlement_id": "entl55f1cfa7eb", "expires_at": 1787087979324 }] }
+```
+
+The first implementation compared that to `"pro"`, so a customer who had
+genuinely purchased stayed on FREE. Nothing errored: the purchase registered, the
+pull succeeded, the match simply never hit — which is the worst shape a billing
+bug can take.
+
+**Any active entitlement now grants Pro.** That is correct because the project
+defines exactly one entitlement, which is also the product decision in §12: one
+paid tier. **If a second entitlement is ever added this becomes silently wrong**
+— at that point either put its `entl...` id in an env var and match strictly, or
+request `?expand=items.entitlement` and match on `lookup_key`. The observed id is
+stored on the Subscription row so it is on hand either way.
+
+The diagnosis is also a lesson about the fallback design below: because a failed
+or unmatched pull never downgrades and never throws, a wrong answer here is
+invisible from the outside. Diagnosing it meant querying the API directly.
+
 ### The rules that matter more than the plumbing
 
 **A failed pull never downgrades anyone.** `RevenueCatUnavailableError` is a
@@ -1068,6 +1093,11 @@ stay one cheap column lookup, not a network call. The new `Subscription` row is
 the *evidence*: the entitlement id, when it expires, and when we last checked.
 Those two fields are what make polling affordable, because the read path can
 serve the stored copy and only pull again when it is stale (6 hours) or expired.
+
+**Test Store trials run on an accelerated clock.** A 7-day trial expired roughly
+seven *minutes* after purchase during testing (bought 21:12, expired 21:19:39).
+That is Test Store behaviour, not a bug, and it means the window for verifying
+the Pro state by hand is short — expect to re-purchase between checks.
 
 **The cost of pull-only:** a lapse is caught at the next sync, so the worst case
 is one app launch of access that has already ended. A webhook would close that

@@ -1,7 +1,6 @@
 import {
   getActiveEntitlements,
   isRevenueCatConfigured,
-  PRO_ENTITLEMENT_ID,
   RevenueCatUnavailableError,
 } from "../lib/revenuecat";
 import { SubscriptionRepository } from "../repositories/subscription.repository";
@@ -37,11 +36,22 @@ export class SubscriptionService {
   private async pullFromRevenueCat(userId: string): Promise<SubscriptionState> {
     const entitlements = await getActiveEntitlements(userId);
 
-    const pro = entitlements.find(
-      (entitlement) => entitlement.entitlement_id === PRO_ENTITLEMENT_ID,
-    );
+    /*
+      **Any active entitlement grants Pro**, rather than one matched by name.
 
-    const isActive = !!pro;
+      The v2 API returns the entitlement's internal object id (`entl55f1cfa7eb`)
+      and not its lookup key, so there is nothing here to compare "pro" against —
+      matching on the name is exactly the bug this replaces, and it kept a
+      customer who had genuinely paid on FREE with no error anywhere.
+
+      This is correct because the project defines exactly one entitlement, which
+      is also the product decision in §12: one paid tier, Free and Pro. **If a
+      second entitlement is ever added, this becomes wrong silently** — at that
+      point put its `entl...` id in an env var and match on it, or expand
+      `items.entitlement` and match on `lookup_key`.
+    */
+    const pro = entitlements[0];
+    const isActive = entitlements.length > 0;
 
     /*
       `expires_at` is null on a non-expiring grant, which is a real state and not
@@ -52,7 +62,9 @@ export class SubscriptionService {
     const lastSyncedAt = new Date();
 
     await this.subscriptionRepo.upsertForUser(userId, {
-      entitlementId: isActive ? PRO_ENTITLEMENT_ID : null,
+      // Store what RevenueCat actually called it, so the id is on hand if this
+      // ever needs to become a strict match.
+      entitlementId: pro?.entitlement_id ?? null,
       isActive,
       expiresAt,
       lastSyncedAt,
