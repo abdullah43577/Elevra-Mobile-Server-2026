@@ -418,6 +418,107 @@ signing in on a second device left the server pushing to an address nobody was
 listening on. `getProfile` now returns `deviceToken`/`deviceType` so the client
 can skip a redundant re-register.
 
-**Not built yet:** `APPLICATION_REMINDER` and `VOICE_TRANSCRIPTION` exist in the
-enum but nothing emits them. Reminders need a scheduler (BullMQ, still
-deferred).
+**Not built yet:** `VOICE_TRANSCRIPTION` exists in the enum but nothing emits it.
+
+
+---
+
+## 11. Application reminders
+
+A daily sweep nudges applications that have gone quiet.
+`src/services/reminder.service.ts` holds the rules and copy;
+`src/lib/scheduler.ts` runs it at 09:00 via `node-cron`, started from
+`server.ts`.
+
+| Status | Idle signal | Threshold |
+| --- | --- | --- |
+| `SAVED` | `createdAt` | 3 days |
+| `APPLIED` | `appliedAt` | 7 days |
+| `INTERVIEWING` | `statusChangedAt` | 5 days |
+
+`lastReminderAt` enforces a 7-day cooldown, so an application is never nudged
+more than once a week whichever rule matches. Archived applications are excluded.
+
+**Never key a reminder rule off `updatedAt`.** This bit once and the fix is why
+`statusChangedAt` exists. Prisma's `@updatedAt` bumps on *every* write —
+including the sweep's own `markReminded` — so the reminder mechanism was
+resetting the very clock it was reading, and an unrelated edit (changing a
+location) did the same. `statusChangedAt` is stamped only when the status
+actually changes.
+
+`markReminded` runs **after** the notifications are sent, not before: a crash
+mid-sweep should re-notify next run rather than silently mark rows as handled.
+
+**Why `node-cron` and not BullMQ.** Reminders are time-based and idempotent — the
+cooldown makes a double run harmless and a missed run simply happens the next
+day — so this needs a scheduler, not a durable queue. BullMQ stays deferred
+until there is work that genuinely must not be lost (voice transcription).
+
+**`findDueForReminder` is the one repository method not scoped by `userId`**,
+because the scheduled sweep runs for every user. It takes an optional `userId`
+for the on-demand path. Every other method in that repository must keep its
+`userId` scoping.
+
+**Testing without waiting for 09:00:** `POST /v1/job-applications/reminders/run`
+runs the sweep for the caller only. Safe to expose — it is scoped to
+`req.userId`.
+
+**Before scaling past one instance:** the cron runs in-process, so every
+instance would fire its own sweep and users would get duplicate reminders. Move
+it to a single worker or take a Redis lock first.
+
+`DISABLE_SCHEDULER=true` turns the job off.
+
+
+---
+
+## 12. Subscriptions — planned, not built
+
+Full plan and the free/paid split live in `../elevra/CLAUDE.md` §13. Server-side
+notes:
+
+- `UserSettings.subscriptionTier` is currently a loose `String` defaulting to
+  `"free"`. Phase 1 replaces it with a `SubscriptionTier` enum (`FREE` | `PRO`).
+- **The entitlement guard belongs in the service layer**, next to the existing
+  ownership checks — not in the controller. A guard in the controller is bypassed
+  the moment someone adds a second route to the same service method.
+- Phase 3 adds a `Subscription` model (provider, product id, status, period end,
+  original transaction id) fed by a **RevenueCat webhook**. Entitlement is
+  derived from that row. Never trust a tier sent by the client.
+- `Template.isPremium` already exists and is unused — it is the natural first
+  thing to gate.
+
+
+---
+
+## 13. Resume templates
+
+The catalogue was rebuilt around ATS parsing. Seeded by
+`prisma/seed-ats-templates.ts` (idempotent — safe to re-run):
+
+| Name | Layout | Category |
+| --- | --- | --- |
+| Cornerstone | `ATS_CLEAN` | ats |
+| Meridian | `ATS_ACCENT` | ats |
+| Headline | `MODERN_BANNER` | modern |
+| Compendium | `COMPACT_DENSE` | minimal |
+| Throughline | `TIMELINE_ACCENT` | modern |
+| Stack | `TECH_FOCUSED` | technical |
+
+**All six are single-column.** The original four were retired
+(`isActive: false`, not deleted — existing `Resume` rows still reference them).
+`CREATIVE_SPLIT` in particular was actively ATS-hostile: a sidebar breaks
+reading order for most parsers.
+
+The `LayoutKey` enum keeps the retired values so old rows still resolve. The
+client maps each one to its closest surviving layout rather than rendering
+nothing.
+
+`defaultData` on every template is a realistic sample resume, not placeholder
+text — templates are judged on how they look full, and lorem ipsum makes every
+layout look identical.
+
+The `FontFamily` enum (`INTER`, `LORA`, `PLAYFAIR`…) is **not honoured**. The
+app only loads Bricolage Grotesque, so layouts differentiate through structure,
+weight, and colour. Either load the fonts or drop the enum; do not add a
+template that depends on it.

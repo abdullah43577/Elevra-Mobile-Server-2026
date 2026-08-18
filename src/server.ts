@@ -2,6 +2,7 @@ import express from "express";
 import { configureApp } from "./config";
 import { registerRoutes } from "./routes";
 import { getEnv } from "./lib/get-env";
+import { startScheduler } from "./lib/scheduler";
 
 const PORT = getEnv("PORT");
 
@@ -18,6 +19,7 @@ registerRoutes(app);
 const server = app.listen(PORT, async () => {
   try {
     console.log(`✅ Server started on http://localhost:${PORT}`);
+    startScheduler();
   } catch (error) {
     console.error("❌ Error starting server:", error);
     console.error("Stack trace:", error instanceof Error ? error.stack : "No stack trace");

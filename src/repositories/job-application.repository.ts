@@ -37,6 +37,7 @@ export interface JobApplicationWriteData {
   notes?: string | null;
   resumeId?: string | null;
   isArchived?: boolean;
+  statusChangedAt?: Date;
 }
 
 export class JobApplicationRepository {
@@ -129,6 +130,52 @@ export class JobApplicationRepository {
   async unlinkRecording(applicationId: string, recordingId: string) {
     return prisma.applicationRecording.deleteMany({
       where: { applicationId, recordingId },
+    });
+  }
+
+  /*
+    The reminder sweep is a system job, so this is the one method in this
+    repository that is NOT scoped to a single user. Everything else here takes
+    a userId and must keep doing so. Callers pass a userId only when running the
+    sweep on demand for one account (testing, or a manual "check now").
+  */
+  async findDueForReminder(rules: { status: ApplicationStatus; idleSince: Date }[], cooldownBefore: Date, userId?: string) {
+    return prisma.jobApplication.findMany({
+      where: {
+        isArchived: false,
+        ...(userId && { userId }),
+        AND: [
+          {
+            OR: [{ lastReminderAt: null }, { lastReminderAt: { lt: cooldownBefore } }],
+          },
+          {
+            OR: rules.map(rule =>
+              rule.status === "SAVED"
+                ? { status: rule.status, createdAt: { lt: rule.idleSince } }
+                : rule.status === "APPLIED"
+                  ? { status: rule.status, appliedAt: { lt: rule.idleSince } }
+                  : { status: rule.status, statusChangedAt: { lt: rule.idleSince } },
+            ),
+          },
+        ],
+      },
+      select: {
+        id: true,
+        userId: true,
+        company: true,
+        role: true,
+        status: true,
+        appliedAt: true,
+        createdAt: true,
+        statusChangedAt: true,
+      },
+    });
+  }
+
+  async markReminded(ids: string[], at: Date) {
+    return prisma.jobApplication.updateMany({
+      where: { id: { in: ids } },
+      data: { lastReminderAt: at },
     });
   }
 

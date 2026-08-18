@@ -9,10 +9,12 @@ import {
   updateJobApplicationSchema,
 } from "../schemas/job-application";
 import { JobApplicationService } from "../services/job-application.service";
+import { ReminderService } from "../services/reminder.service";
 import type { JobApplicationWriteData } from "../repositories/job-application.repository";
 
 export class JobApplicationController {
   private applicationService = new JobApplicationService();
+  private reminderService = new ReminderService();
 
   async getApplications(req: IUserRequest, res: Response) {
     try {
@@ -36,6 +38,21 @@ export class JobApplicationController {
       const { userId } = req;
       const stats = await this.applicationService.getStats(userId!);
       res.status(200).json({ message: "Application stats fetched successfully!", data: stats });
+    } catch (error) {
+      handleErrors({ res, error });
+    }
+  }
+
+  /*
+    Runs the reminder sweep for the caller only. The scheduled job sweeps every
+    user; this exists so reminders can be exercised without waiting for 09:00,
+    and is safe to expose because it is scoped to req.userId.
+  */
+  async runReminders(req: IUserRequest, res: Response) {
+    try {
+      const { userId } = req;
+      const data = await this.reminderService.sweep(userId!);
+      res.status(200).json({ message: "Reminder sweep complete", data });
     } catch (error) {
       handleErrors({ res, error });
     }

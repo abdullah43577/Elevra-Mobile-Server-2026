@@ -113,6 +113,10 @@ export class JobApplicationService {
 
       const updateData: JobApplicationWriteData = { ...data };
 
+      if (data.status && data.status !== existing.status) {
+        updateData.statusChangedAt = new Date();
+      }
+
       // Stamp appliedAt the first time an application leaves SAVED, unless the
       // client is explicitly setting the date itself.
       if (data.status && SUBMITTED_STATUSES.includes(data.status) && !existing.appliedAt && data.appliedAt === undefined) {

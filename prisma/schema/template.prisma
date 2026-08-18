@@ -3,6 +3,17 @@
 // ────────────────────────────────
 
 enum LayoutKey {
+  // ATS-first set. All single-column; they differ in header and section-title
+  // treatment only.
+  ATS_CLEAN
+  ATS_ACCENT
+  MODERN_BANNER
+  COMPACT_DENSE
+  TIMELINE_ACCENT
+  TECH_FOCUSED
+
+  // Original four. Retired from the catalogue (isActive false) but kept in the
+  // enum because existing Resume rows still reference their templates.
   PROFESSIONAL_CLASSIC
   PROFESSIONAL_SLEEK
   CREATIVE_SPLIT

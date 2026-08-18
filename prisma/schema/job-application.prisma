@@ -29,6 +29,15 @@ model JobApplication {
   notes           String?
   isArchived      Boolean           @default(false)
 
+  // Last time a follow-up reminder fired for this application. Guards the
+  // daily sweep against nagging the same row every single day.
+  lastReminderAt  DateTime?
+
+  // When the status last actually changed. Reminder rules must key off this,
+  // never updatedAt — @updatedAt bumps on every write, including the sweep's
+  // own markReminded, so updatedAt silently resets the idle clock.
+  statusChangedAt DateTime          @default(now())
+
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
