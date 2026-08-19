@@ -1,35 +1,79 @@
 import IORedis from "ioredis";
 import { getEnv } from "./get-env";
-const { REDIS_HOST, REDIS_PASS, REDIS_USERNAME, REDIS_PORT, NODE_ENV } = getEnv(["REDIS_HOST", "REDIS_PASS", "REDIS_USERNAME", "REDIS_PORT", "NODE_ENV"]);
+const { REDIS_URL, REDIS_HOST, REDIS_PASS, REDIS_USERNAME, REDIS_PORT, REDIS_DB, NODE_ENV } =
+  getEnv(["REDIS_URL", "REDIS_HOST", "REDIS_PASS", "REDIS_USERNAME", "REDIS_PORT", "REDIS_DB", "NODE_ENV"]);
 
-const config =
-  NODE_ENV === "development"
-    ? {
-        host: "localhost",
-        port: 6379,
-        maxRetriesPerRequest: null,
-        connectTimeout: 10000, // 10 seconds timeout
-        lazyConnect: false,
-        retryStrategy: (times: number) => {
-          const delay = Math.min(times * 50, 2000);
-          return delay;
-        },
-      }
-    : {
-        host: REDIS_HOST,
-        username: REDIS_USERNAME,
-        password: REDIS_PASS,
-        port: REDIS_PORT as unknown as number,
-        maxRetriesPerRequest: null,
-        connectTimeout: 10000, // 10 seconds timeout
-        lazyConnect: false,
-        retryStrategy: (times: number) => {
-          const delay = Math.min(times * 50, 2000);
-          return delay;
-        },
-      };
+const commonOptions = {
+  maxRetriesPerRequest: null,
+  connectTimeout: 10000,
+  lazyConnect: false,
+  retryStrategy: (times: number) => Math.min(times * 50, 2000),
+};
 
-export const redis = new IORedis(config);
+/*
+  Never log a Redis url raw — a managed provider's url carries the password in
+  the authority, and this one is printed on every boot into a hosting dashboard.
+*/
+const redact = function (url: string) {
+  try {
+    const parsed = new URL(url);
+    return `${parsed.protocol}//${parsed.username ? "***:***@" : ""}${parsed.hostname}:${parsed.port || "6379"}`;
+  } catch {
+    return "<unparseable REDIS_URL>";
+  }
+};
+
+/*
+  REDIS_URL wins over everything else, and that ordering is deliberate.
+
+  Every managed provider (Render Key Value, Upstash, Redis Cloud) hands you one
+  url carrying host, port, credentials and database — and a `rediss://` scheme
+  turns TLS on by itself, which is the thing the discrete-field config below
+  cannot express and the reason a TLS-only provider could not be used at all.
+
+  It also defuses the branch underneath it: with a url set, a stray
+  NODE_ENV=development in production can no longer redirect the whole app at
+  localhost:6379 and fail every OTP on the box.
+*/
+const buildConnection = function () {
+  if (REDIS_URL) {
+    console.log(`🔧 Redis config: REDIS_URL -> ${redact(REDIS_URL)}`);
+    return new IORedis(REDIS_URL, commonOptions);
+  }
+
+  // Local development, unchanged: docker-compose puts Redis on the default port.
+  if (NODE_ENV === "development") {
+    console.log("🔧 Redis config: development default -> redis://localhost:6379");
+    return new IORedis({ host: "localhost", port: 6379, ...commonOptions });
+  }
+
+  /*
+    ioredis resolves an undefined host to 127.0.0.1, so a missing REDIS_URL in
+    production used to look identical to a Redis that was merely down: an
+    endless ECONNREFUSED against a loopback address nobody configured. Say so
+    out loud instead — this branch is only correct when the discrete fields are
+    deliberately set.
+  */
+  if (!REDIS_HOST) {
+    console.error("❌ Neither REDIS_URL nor REDIS_HOST is set. Redis will be dialled at 127.0.0.1:6379 and will fail.");
+    console.error(`   NODE_ENV=${NODE_ENV ?? "<unset>"}. Set REDIS_URL on this service and redeploy.`);
+  }
+
+  console.log(`🔧 Redis config: discrete fields -> ${REDIS_HOST ?? "<unset>"}:${REDIS_PORT ?? 6379}`);
+
+  return new IORedis({
+    host: REDIS_HOST,
+    port: Number(REDIS_PORT ?? 6379),
+    ...(REDIS_USERNAME && { username: REDIS_USERNAME }),
+    ...(REDIS_PASS && { password: REDIS_PASS }),
+    // Previously read from the env and then never applied, so a non-zero
+    // REDIS_DB silently did nothing. Most managed free tiers only offer db 0.
+    ...(REDIS_DB && { db: Number(REDIS_DB) }),
+    ...commonOptions,
+  });
+};
+
+export const redis = buildConnection();
 
 // Add error handlers with rate limiting to reduce log spam
 let lastErrorLogTime = 0;
@@ -38,7 +82,9 @@ const ERROR_LOG_INTERVAL = 30_000; // 30s. Was 3e14 (~9,500 years), so errors lo
 redis.on("error", err => {
   const now = Date.now();
   if (now - lastErrorLogTime > ERROR_LOG_INTERVAL) {
-    console.error("❌ Redis connection error:", err.message);
+    const code = (err as NodeJS.ErrnoException).code;
+    console.error(`❌ Redis connection error [${code ?? "no code"}]:`, err.message);
+    console.error(`   Target: ${redis.options.host}:${redis.options.port}`);
     console.warn("⚠️  Email queueing will not work until Redis is available.");
     lastErrorLogTime = now;
   }

@@ -1103,3 +1103,69 @@ the Pro state by hand is short — expect to re-purchase between checks.
 is one app launch of access that has already ended. A webhook would close that
 window. If it ever matters, the endpoint to add is a webhook that calls the same
 `pullFromRevenueCat` — none of the derivation logic changes.
+
+---
+
+## 24. Deploying (Render + Supabase + managed Redis)
+
+### Redis is configured by url, not by fields
+
+`REDIS_URL` takes precedence over `REDIS_HOST`/`PORT`/`PASS`/`DB`. Every managed
+provider hands you one, and a `rediss://` scheme turns TLS on by itself — which
+the discrete-field config cannot express, and which is why a TLS-only provider
+(Upstash, Redis Cloud) could not be used at all before this.
+
+It also defuses a trap: the fallback still has a `NODE_ENV === "development"`
+branch that hardcodes `localhost:6379`, so without a url, a stray
+`NODE_ENV=development` in production would point the whole app at a Redis that
+is not there and fail every OTP on the box.
+
+**Render Key Value** is the low-friction choice when the API is already on
+Render: the internal connection is plain `redis://` on their private network, so
+no TLS is involved. The free tier has no persistence, which is acceptable here —
+Redis only holds 10-minute hashed OTPs and rate-limit counters, so a restart
+costs someone one re-requested code.
+
+Two fields were quietly broken before this and are now honoured: `REDIS_DB` was
+read from the env and never applied, and `REDIS_USERNAME` was referenced but
+absent from `.env.example`.
+
+### The scheduler does not survive a host that sleeps
+
+`lib/scheduler.ts` runs `node-cron` **in-process**. On a host that spins down
+when idle — Render's free tier — the 09:00 sweep simply never fires, and nothing
+errors to say so.
+
+`POST /v1/maintenance/reminders/sweep` exists for that: point a platform cron job
+at it and set `DISABLE_SCHEDULER=true` so the in-process timer stands down.
+Running both is harmless anyway — the sweep is idempotent and the
+`lastReminderAt` cooldown absorbs a double run.
+
+It is guarded by `CRON_SECRET` in an `Authorization: Bearer` header, compared
+timing-safely over SHA-256 digests so a wrong-length guess rejects rather than
+throwing. **With no `CRON_SECRET` set the endpoint refuses everything** — an
+unauthenticated trigger for a job that emails users is not a thing to leave on a
+default. Verified locally: 401 with no header, 401 with a wrong secret, 200 and
+`{ reminded: 0 }` with the right one.
+
+### Supabase: use the session pooler, not the transaction pooler
+
+`prestart` runs `prisma migrate deploy`. Supabase's **transaction pooler (port
+6543) cannot run migrations** — they need session-level features it does not
+provide. Supabase's direct connection is IPv6-only, which most hosts cannot
+reach, so the **session pooler on port 5432** is normally the right
+`DATABASE_URL` for both the app and migrations.
+
+### A stale process will lie to you
+
+Diagnosing the cron endpoint burned real time because **several old `tsx watch`
+servers were still holding port 8888**, one started before the env var existed.
+Requests hit the old process, which had loaded `.env` at its own boot and knew
+nothing of `CRON_SECRET`, so a correct secret kept coming back "disabled".
+
+This is the same trap `../elevra/CLAUDE.md` §9a records for Metro. Before
+believing an env var "is not being read", check for orphans:
+
+```powershell
+Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*server.ts*' }
+```
