@@ -1169,3 +1169,52 @@ believing an env var "is not being read", check for orphans:
 ```powershell
 Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -like '*server.ts*' }
 ```
+
+### Seeds run in `prestart`, not in the server start callback
+
+A fresh database has no templates, no interview questions and no professions, so
+three screens come up empty with nothing to explain why. `prestart` now runs
+`migrate deploy && generate && npm run seed:prod`, which chains
+`seed-professions.ts`, `seed-ats-templates.ts` and `seed-interview-questions.ts`.
+
+**All three are `upsert`-based, which is what makes this safe to leave in
+permanently.** Re-running is a no-op, so there is no temporary "seed once" code
+anyone has to remember to delete in a later commit.
+
+The server start callback is the wrong home for it. That fires on every *process*
+start rather than every deploy — Render restarts on OOM, failed health checks and
+scaling — so it re-runs unpredictably, races traffic because the port is already
+open, and a failure surfaces after the app is serving. `prestart` runs once per
+deploy, before the port opens, and a failure fails the deploy loudly.
+
+**`prisma/seed.ts` is deliberately excluded.** It uses `create()`, so it would
+duplicate themes and templates on every deploy, and it seeds the legacy pre-ATS
+catalogue that `seed-ats-templates.ts` retires anyway. `prisma.config.ts` still
+names it as the `prisma db seed` command — harmless, because `migrate deploy`
+never triggers seeds, but do not run `prisma db seed` against production.
+
+Professions were the real gap: the list existed only as a commented-out block
+inside `seed.ts`, so that table had never been seeded anywhere. It is now
+`seed-professions.ts`, 63 rows, upserted on the unique name.
+
+A fresh database comes up with 6 templates, 6 themes, 63 professions and 50
+questions.
+
+### `tsx` and `prisma` are runtime dependencies, not dev ones
+
+`start` is `tsx src/server.ts` and `prestart` shells out to the `prisma` CLI, so
+both must survive a production install. They were in `devDependencies` and the
+first Render deploy died with `sh: 1: tsx: not found` (exit 127).
+
+Running the TypeScript directly is load-bearing, not laziness: `tsconfig.json`
+uses `moduleResolution: "bundler"` with extensionless relative imports while
+`package.json` sets `"type": "module"`, so `tsc` output would fail at startup
+with `ERR_MODULE_NOT_FOUND` on the first import, and there is no `outDir` so the
+`.js` files would land beside every `.ts`. Compiling for production means
+switching to `nodenext`, adding `.js` to every relative import, and setting
+`outDir` — a real change, not a flag.
+
+Two related deploy settings: the Render **Start Command must be `npm start`**,
+not a bare `tsx src/server.ts`. A raw command runs under plain `sh` without
+`node_modules/.bin` on `PATH`, and — worse — skips `prestart`, so migrations and
+seeds never run.
