@@ -7,8 +7,9 @@
     "dev": "tsx watch src/server.ts",
     "type-check": "tsc --noEmit --watch",
     "build": "tsc",
-    "prestart": "prisma migrate deploy && prisma generate",
-    "start": "tsx src/server.ts"
+    "start": "tsx src/server.ts",
+    "prestart": "prisma migrate deploy && prisma generate && npm run seed:prod",
+    "seed:prod": "tsx prisma/seed-professions.ts && tsx prisma/seed-ats-templates.ts && tsx prisma/seed-interview-questions.ts"
   },
   "keywords": [],
   "author": "",
