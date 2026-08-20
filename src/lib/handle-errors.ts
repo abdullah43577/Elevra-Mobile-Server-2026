@@ -54,7 +54,7 @@ export const handleErrors = function ({ res, error }: IHandleErrors) {
 
   // Typed app errors (NotFoundError, ForbiddenError, BadRequestError, etc.)
   if (error instanceof AppError) {
-    return res.status(error.statusCode).json({ message: error.message });
+    return res.status(error.statusCode).json({ message: error.message, ...(error.code && { code: error.code }) });
   }
 
   // Generic/Unknown Error

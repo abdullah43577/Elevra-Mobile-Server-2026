@@ -44,3 +44,19 @@ export const resetPasswordSchema = z.object({
 });
 
 export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
+
+/*
+  Apple hands the user's name to the client *once*, on the very first
+  authorization, and never again — it is not in the identity token at all. So
+  the client forwards whatever it was given and the service treats it as a
+  best-effort hint, never as identity. `idToken` is the only trusted field here.
+*/
+export const socialAuthSchema = z.object({
+  idToken: z.string().min(1, "A sign-in token is required"),
+  first_name: z.string().trim().min(1).optional(),
+  last_name: z.string().trim().min(1).optional(),
+  deviceToken: z.string().optional(),
+  deviceType: z.string().optional(),
+});
+
+export type SocialAuthValues = z.infer<typeof socialAuthSchema>;

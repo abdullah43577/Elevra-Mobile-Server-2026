@@ -48,6 +48,21 @@ router.post("/signup", issueLimiter, authController.createUser.bind(authControll
 router.post("/verify-email", otpLimiter, authController.verifyEmail.bind(authController));
 router.post("/resend-verification-otp", issueLimiter, authController.resendVerificationOtp.bind(authController));
 router.post("/signin", loginLimiter, authController.loginUser.bind(authController));
+/*
+  Social sign-in carries no email in the body, so emailFromBody yields nothing
+  and the limiter falls back to the IP alone. That is the right shape here:
+  there is no per-account guessing to cap — the ID token is either validly
+  signed by Google or Apple or it is not — only request volume.
+*/
+const socialLimiter = rateLimit({
+  keyPrefix: "social-auth",
+  windowSeconds: 900,
+  max: 20,
+  message: "Too many sign-in attempts. Please try again later.",
+});
+
+router.post("/google", socialLimiter, authController.googleSignIn.bind(authController));
+router.post("/apple", socialLimiter, authController.appleSignIn.bind(authController));
 router.post("/forgot-password", issueLimiter, authController.forgotPassword.bind(authController));
 router.post("/reset-password", otpLimiter, authController.resetPassword.bind(authController));
 router.get("/profile", validateAccessToken, authController.getProfile.bind(authController));

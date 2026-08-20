@@ -1,4 +1,4 @@
-import { BadRequestError, NotFoundError } from "../lib/errors";
+import { BadRequestError, EmailNotVerifiedError, NotFoundError } from "../lib/errors";
 import { generateAccessToken, generateRefreshToken } from "../lib/generate-token";
 import { getEnv } from "../lib/get-env";
 import { comparePassword, hashPassword } from "../lib/hash-password";
@@ -21,6 +21,51 @@ export class AuthService {
   private voiceRecordingRepo = new VoiceRecordingRepository();
   private static generateOTP = () => crypto.randomInt(100000, 1000000).toString();
 
+  /*
+    Cooldown between verification emails for one account. Matches the resend
+    button's own countdown on the client, so the two never disagree about when
+    another code is available.
+  */
+  private static readonly VERIFY_OTP_COOLDOWN_SECONDS = 60;
+
+  /*
+    The one place a verification code is minted and mailed. register(),
+    resendVerificationOtp() and login() all go through it — it existed as three
+    copies before login() needed a fourth.
+
+    `throttle` is only set on the login path. That send is a side effect of an
+    action the user took for a different reason, so tapping Sign in a few times
+    must not put a few more codes in their inbox; the explicit Resend button is
+    where "send me another one right now" lives, and it is rate limited at the
+    route.
+
+    Returns whether a mail actually went out, so the caller can tell the user
+    which of the two happened.
+  */
+  private async issueVerificationOtp(user: { id: string; email: string; first_name: string | null; last_name: string | null }, options?: { throttle?: boolean }) {
+    if (options?.throttle) {
+      const cooldownKey = `email-verify-cooldown:${user.id}`;
+
+      // NX + EX in one call: set only if absent, and expire it. Checking then
+      // setting would let two concurrent sign-ins both find it empty.
+      const claimed = await redis.set(cooldownKey, "1", "EX", AuthService.VERIFY_OTP_COOLDOWN_SECONDS, "NX");
+
+      if (!claimed) return false;
+    }
+
+    const otp = AuthService.generateOTP();
+    const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
+
+    await redis.set(`email-verify:${user.id}`, hashedOtp, "EX", 600);
+
+    await this.mailService.sendVerifyEmail(user.email, {
+      name: user.first_name ?? user.last_name ?? "User",
+      otp,
+    });
+
+    return true;
+  }
+
   async register(data: SignUpFormValues) {
     try {
       const existingUser = await this.userRepo.findByEmail(data.email);
@@ -39,15 +84,7 @@ export class AuthService {
         has_onboarded: true,
       });
 
-      const otp = AuthService.generateOTP();
-      const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
-
-      await redis.set(`email-verify:${user.id}`, hashedOtp, "EX", 600);
-
-      await this.mailService.sendVerifyEmail(user.email, {
-        name: user.first_name ?? user.last_name ?? "User",
-        otp,
-      });
+      await this.issueVerificationOtp(user);
 
       return user;
     } catch (error) {
@@ -93,15 +130,7 @@ export class AuthService {
 
       if (user.has_validated_email) throw new BadRequestError("Email is already verified");
 
-      const otp = AuthService.generateOTP();
-      const hashedOtp = crypto.createHash("sha256").update(otp).digest("hex");
-
-      await redis.set(`email-verify:${user.id}`, hashedOtp, "EX", 600);
-
-      await this.mailService.sendVerifyEmail(user.email, {
-        name: user.first_name ?? user.last_name ?? "User",
-        otp,
-      });
+      await this.issueVerificationOtp(user);
 
       return true;
     } catch (error) {
@@ -115,11 +144,16 @@ export class AuthService {
 
       if (!user) throw new BadRequestError("Invalid credentials");
 
-      if (!user.has_validated_email) throw new BadRequestError("Please verify your email before logging in");
+      /*
+        Gated on the *absence of a password*, not on the presence of a googleId.
+        A password account that later links Google has both, and the old check
+        locked it out of the credentials it was created with.
+      */
+      if (!user.password) {
+        throw new BadRequestError(user.appleId && !user.googleId ? "Please sign in with Apple" : "Please sign in with Google");
+      }
 
-      if (user.googleId) throw new BadRequestError("Please login using Google Sign-In");
-
-      const isMatch = await comparePassword(data.password, user.password!);
+      const isMatch = await comparePassword(data.password, user.password);
 
       if (!isMatch) {
         await this.userRepo.incrementFailedLogin(user.id, user.failedLoginAttempts);
@@ -128,6 +162,31 @@ export class AuthService {
       }
 
       await this.userRepo.resetLoginAttempts(user.id);
+
+      /*
+        Checked *after* the password, not before, and that ordering is the whole
+        safety of the send below.
+
+        This used to be the first thing login() looked at, so anyone who knew
+        the address of an account that had signed up but never verified could
+        put mail in that inbox by posting rubbish at this endpoint. A code now
+        only goes to someone who has already proved they hold the credentials,
+        and a wrong password is still answered with a flat "Invalid
+        credentials" that reveals nothing about the account's state.
+
+        Throttled, so repeatedly tapping Sign in does not stack up codes. Either
+        way the client gets EMAIL_NOT_VERIFIED and sends the user to the OTP
+        screen — a code is waiting for them regardless of which branch ran.
+      */
+      if (!user.has_validated_email) {
+        const sent = await this.issueVerificationOtp(user, { throttle: true });
+
+        throw new EmailNotVerifiedError(
+          sent
+            ? "Your email isn't verified yet. We've sent a new code to your inbox."
+            : "Your email isn't verified yet. Enter the code we already sent to your inbox.",
+        );
+      }
 
       const accessToken = generateAccessToken({
         id: user.id,

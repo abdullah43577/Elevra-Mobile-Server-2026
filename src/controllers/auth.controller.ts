@@ -1,13 +1,16 @@
 import type { Request, Response } from "express";
 import { AuthService } from "../services/auth.services";
+import { SocialAuthService } from "../services/social-auth.service";
+import type { SocialProvider } from "../lib/verify-social-token";
 import type { IUserRequest } from "../interface";
-import { signInSchema, signUpSchema, resetPasswordSchema, deleteAccountSchema } from "../schemas/auth";
+import { signInSchema, signUpSchema, resetPasswordSchema, deleteAccountSchema, socialAuthSchema } from "../schemas/auth";
 import { handleErrors } from "../lib/handle-errors";
 import { BadRequestError } from "../lib/errors";
 import type { UpdateProfile, UpdateSettings } from "../schemas/profile";
 
 export class AuthController {
   private authService = new AuthService();
+  private socialAuthService = new SocialAuthService();
 
   async testApi(req: Request, res: Response) {
     res.status(200).json({ message: "SERVERS ARE LIVE!!!" });
@@ -65,6 +68,37 @@ export class AuthController {
     } catch (error) {
       handleErrors({ res, error });
     }
+  }
+
+  /*
+    One handler for both providers. Sign-in and sign-up are the same request:
+    the client cannot know whether the Google account it just authenticated has
+    been here before, and asking it to guess would give us two endpoints that
+    must behave identically anyway.
+  */
+  private async socialSignIn(provider: SocialProvider, req: IUserRequest, res: Response) {
+    try {
+      const data = socialAuthSchema.parse(req.body);
+
+      const result = await this.socialAuthService.signIn(provider, data);
+
+      const { user, ...rest } = result;
+      const { password: _, ...userWithoutPassword } = user;
+
+      // Deliberately the same shape as loginUser, so the client's existing
+      // session handling works unchanged.
+      res.status(200).json({ message: "Login Successful", data: { user: userWithoutPassword, token: rest } });
+    } catch (error) {
+      handleErrors({ res, error });
+    }
+  }
+
+  async googleSignIn(req: IUserRequest, res: Response) {
+    return this.socialSignIn("GOOGLE", req, res);
+  }
+
+  async appleSignIn(req: IUserRequest, res: Response) {
+    return this.socialSignIn("APPLE", req, res);
   }
 
   async forgotPassword(req: Request, res: Response) {

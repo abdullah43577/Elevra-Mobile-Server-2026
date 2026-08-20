@@ -260,7 +260,7 @@ from the DB on every request.
 
 | Area | State |
 | --- | --- |
-| Auth, OTP, profile, settings | Done |
+| Auth, OTP, profile, settings | Done — unverified login now issues a code and 403s, see §26 |
 | Professions | Done |
 | Notes, folders, tags | Done |
 | Note AI summary (Gemini, SSE stream) | **Done on the server** — gated on the client only |
@@ -274,6 +274,7 @@ from the DB on every request.
 | Resume duplication, job descriptions | Done — see §20 |
 | Account deletion | Done — see §22 |
 | Subscriptions Phase 3 (pull-based) | Done — see §23 |
+| Social sign-in (Google, Apple) | Built — see §25; unverified against a real token |
 
 Open loose ends, roughly in priority order:
 
@@ -1218,3 +1219,177 @@ Two related deploy settings: the Render **Start Command must be `npm start`**,
 not a bare `tsx src/server.ts`. A raw command runs under plain `sh` without
 `node_modules/.bin` on `PATH`, and — worse — skips `prestart`, so migrations and
 seeds never run.
+
+---
+
+## 25. Social sign-in (Google and Apple)
+
+The client had Google and Apple buttons on sign-in and sign-up since the first
+version and **the server had nothing behind them** — no route, no verification,
+no `appleId` column. `AuthProvider` carried `GOOGLE` and `APPLE` and nothing
+ever wrote them; `googleId` was read in exactly one place, to *refuse* a login.
+
+**Files:** `src/lib/verify-social-token.ts`, `src/services/social-auth.service.ts`,
+`socialAuthSchema` in `src/schemas/auth.ts`, two methods on `AuthController`,
+two routes, and `findByProviderId` / `createSocialUser` on `UserRepository`.
+Migration `20260820172311_add_social_auth_apple_id`.
+
+`POST /v1/auth/google` and `POST /v1/auth/apple`. Both take
+`{ idToken, first_name?, last_name?, deviceToken?, deviceType? }` and answer
+**the exact shape `POST /v1/auth/signin` answers** — `{ user, token: { tokens } }`
+— so the client's session handling did not have to learn a second shape.
+
+### The audience check is the whole security model
+
+`idToken` is the only field trusted. It is verified against the provider's live
+JWKS (`createRemoteJWKSet`, module-level so the key set is cached per process,
+not fetched per sign-in), checking signature, issuer, expiry, **and audience**.
+
+Audience is the one people skip and the one that matters. A token can verify
+perfectly against Google's keys and still be worthless: it may have been issued
+to somebody else's app for the same person. `GOOGLE_WEB_CLIENT_ID` /
+`GOOGLE_IOS_CLIENT_ID` / `GOOGLE_ANDROID_CLIENT_ID` and `APPLE_BUNDLE_ID` /
+`APPLE_SERVICE_ID` are what tie the signature to *this* app. Each accepts a
+comma-separated list. **With none set the route answers 401 rather than
+verifying nothing** — an unconfigured provider is shut, not open.
+
+Failures never say why. "Expired" versus "wrong audience" versus "bad signature"
+tells an attacker which knob to turn, so all three collapse to one message.
+
+Two provider quirks that break a verifier written from the spec alone:
+
+- **Google issues tokens under two issuer spellings**, `https://accounts.google.com`
+  and bare `accounts.google.com`, and still does. Accepting only the URL form
+  rejects real tokens.
+- **`email_verified` arrives as the string `"true"` as often as the boolean.**
+  Apple does it routinely; Google has historically. `=== true` silently treats
+  every one of those as unverified.
+
+### Linking, and the takeover it would otherwise open
+
+An existing account is found by provider id first, then by email. The email
+fallback is what stops a password user from acquiring a second empty account the
+first time they tap the Google button — and it is **only** safe because the
+provider asserts the address is verified, which is checked before the lookup
+runs. An unverified address is rejected outright rather than falling back to
+provider-id-only matching.
+
+**Linking to an unverified password account destroys its password.** This is not
+tidiness, it is the fix for pre-registration account takeover: anyone can sign
+up with a password against an address they do not own, and that account simply
+sits unverified because `login()` refuses it. Attaching a social identity sets
+`has_validated_email` — which would bring the attacker's chosen password to life
+against the real owner's account. The provider owns the address; an unverified
+signup does not, so the password goes and the genuine user sets a new one
+through the ordinary reset flow, which requires the inbox they hold.
+
+Linking only **fills gaps** in the profile. A user who renamed themselves in
+Profile must not have it overwritten by their Google display name on every
+sign-in.
+
+A newly created social account gets the welcome mail and the `SYSTEM`
+notification that `verifyEmail` sends a password account. That is the equivalent
+moment: it is when the account becomes real.
+
+### `login()` was gated on the wrong thing
+
+It threw "Please login using Google Sign-In" whenever `user.googleId` was set.
+Once linking exists, a password account that adds Google has both — and that
+check locked it out of the credentials it was created with. It now gates on the
+**absence of a password**, which is the condition that actually makes password
+login impossible, and names the provider the account does have.
+
+### Smaller decisions
+
+- **`createSocialUser` is separate from `createUser`**, which pins
+  `authProvider: "PASSWORD"`. Widening that one to read the flag from its
+  argument would let any future caller mint a `GOOGLE` account through the
+  password path with one extra key.
+- **`googleId` and `appleId` are `@unique`.** Postgres allows many NULLs in a
+  unique index, so every password-only account is unaffected, and one provider
+  identity can never be claimed by two rows.
+- **`authProvider` is set at creation and never changed.** It records how the
+  account came into being; entitlement to a login path is read from which
+  credentials exist, not from that enum.
+- **The rate limiter falls back to IP alone.** `emailFromBody` finds nothing in
+  a social request, which is correct — there is no per-account guessing to cap
+  here, only request volume. A token is either validly signed or it is not.
+- **`jose` rather than `google-auth-library`.** One dependency verifies both
+  providers with the same call, and Apple would have needed a JWKS client
+  anyway.
+
+Apple never puts a name in the identity token and discloses it to the client
+only on the **first** authorization, so `first_name` / `last_name` in the
+request body are a best-effort hint and are treated as one — used to fill a gap,
+never as identity.
+
+**Unverified: nothing has been signed in with for real.** The routes are
+smoke-tested (400 on a missing token, 401 on a forged one that reaches Google's
+and Apple's live key sets, 401 when the audience env is unset) but no genuine
+Google or Apple token has been through them — that needs the client ids in §25's
+env block and a dev build on the client side.
+
+---
+
+## 26. Unverified login sends the user to the OTP screen
+
+`login()` used to answer an unverified account with a flat 400 and
+"Please verify your email before logging in" — accurate, and a dead end. No code
+was issued, so the only way forward was for the user to work out on their own
+that a *different* screen existed and that they needed a code to reach it.
+
+It now issues a fresh code and answers **403 with `code: "EMAIL_NOT_VERIFIED"`**,
+which the client uses to route to the verify screen (`../elevra/CLAUDE.md` §30).
+
+### 403, not 401
+
+The client's axios interceptor treats every 401 as an expired session and drives
+it into refresh-then-sign-out. A 401 here would be swallowed by that path and
+never reach the login hook at all.
+
+### `AppError` gained an optional `code`
+
+`handleErrors` now includes it in the body when present. This is the first error
+in the API a client has to **act** on rather than display, and matching on the
+message text would break the moment anyone rewords a string. Keep the list short
+— it is for branching, not for a parallel status vocabulary.
+
+### The check moved *after* the password comparison, and that is the point
+
+It used to be the first thing `login()` looked at. Once that branch sends mail,
+that ordering is a spam gun: anyone who knew the address of an account that had
+signed up but never verified could put a code in that inbox by posting rubbish
+at the endpoint, no credentials needed.
+
+Checked after `comparePassword`, a code only ever goes to someone who has
+already proved they hold the credentials, and a wrong password is still answered
+with the same flat "Invalid credentials" — the response reveals nothing about
+whether the account exists or what state it is in.
+
+### One issuer, throttled on one path
+
+`issueVerificationOtp` is now the only place a verification code is minted and
+mailed; `register`, `resendVerificationOtp` and `login` all go through it. It
+existed as three copies before login needed a fourth.
+
+Only the login path passes `throttle: true`. That send is a side effect of an
+action taken for a different reason, so tapping Sign in a few times must not
+stack up codes; the explicit Resend button is where "send me another one right
+now" lives, and it is rate limited at the route by `issueLimiter`. The cooldown
+is **60 seconds, matching `RESEND_COOLDOWN_SECONDS` on the verify screen**, so
+the two never disagree about when another code is available.
+
+The claim is `SET key value EX 60 NX` — one call, not a read followed by a
+write, or two concurrent sign-ins would both find the key empty and both send.
+
+**Throttled still means 403 with the code**, only with different wording
+("enter the code we already sent" rather than "we've sent a new code"). The
+redirect must happen either way: a valid code is waiting for the user in both
+branches, and stranding them on the login form because they tapped twice would
+be the original bug wearing a hat.
+
+Smoke-tested end to end against the running server: wrong password on an
+unverified account answers 400 "Invalid credentials" and mails nothing; the
+correct password answers 403 with the code and writes both Redis keys
+(`email-verify` at 600s, `email-verify-cooldown` at 60s); an immediate retry
+takes the throttled branch; and verify-then-login then succeeds with tokens.

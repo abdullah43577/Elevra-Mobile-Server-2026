@@ -26,7 +26,11 @@ model User {
   profile_pic           String?
   gender        Gender?
   has_validated_email   Boolean            @default(false)
-  googleId              String?
+  // Unique so one provider identity can never be claimed by two accounts.
+  // Nullable, and Postgres allows many NULLs in a unique index, so every
+  // password-only account still coexists happily.
+  googleId              String?            @unique
+  appleId               String?            @unique
   failedLoginAttempts   Int                @default(0)
   isLocked              Boolean            @default(false)
   lastLogin             DateTime           @default(now())
