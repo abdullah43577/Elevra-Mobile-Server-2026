@@ -160,6 +160,32 @@ export class InterviewPrepRepository {
     });
   }
 
+  /*
+    Generated questions and their pins land together or not at all: a question
+    created but never pinned would sit in the bank with no trace of which
+    application it was written for.
+  */
+  async createAndPinQuestions(
+    userId: string,
+    applicationId: string,
+    questions: { text: string; category: InterviewCategory; guidance?: string }[],
+    existingIdsToPin: string[],
+  ) {
+    return prisma.$transaction(async tx => {
+      const created = [];
+      for (const question of questions) {
+        created.push(await tx.interviewQuestion.create({ data: { userId, ...question }, include: answerFor(userId) }));
+      }
+
+      await tx.applicationQuestion.createMany({
+        data: [...created.map(question => question.id), ...existingIdsToPin].map(questionId => ({ applicationId, questionId })),
+        skipDuplicates: true,
+      });
+
+      return created;
+    });
+  }
+
   async unlinkFromApplication(applicationId: string, questionId: string) {
     return prisma.applicationQuestion.deleteMany({
       where: { applicationId, questionId },

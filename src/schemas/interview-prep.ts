@@ -6,8 +6,13 @@ const categorySchema = z.enum([
   "SITUATIONAL",
   "MOTIVATION",
   "STRENGTHS",
+  "ROLE_SPECIFIC",
   "CLOSING",
 ]);
+
+export const generateQuestionsSchema = z.object({
+  applicationId: z.string().min(1),
+});
 
 const statusSchema = z.enum(["DRAFT", "NEEDS_WORK", "READY"]);
 

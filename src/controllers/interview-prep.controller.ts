@@ -3,6 +3,7 @@ import type { IUserRequest } from "../interface";
 import { handleErrors } from "../lib/handle-errors";
 import {
   createQuestionSchema,
+  generateQuestionsSchema,
   getQuestionsQuerySchema,
   recordPracticeSchema,
   saveAnswerSchema,
@@ -10,9 +11,23 @@ import {
   uploadAnswerAudioSchema,
 } from "../schemas/interview-prep";
 import { InterviewPrepService } from "../services/interview-prep.service";
+import { InterviewQuestionGenerationService } from "../services/interview-question-generation.service";
 
 export class InterviewPrepController {
   private prepService = new InterviewPrepService();
+  private generationService = new InterviewQuestionGenerationService();
+
+  async generateQuestions(req: IUserRequest, res: Response) {
+    try {
+      const { userId } = req;
+      const { applicationId } = generateQuestionsSchema.parse(req.body);
+
+      const data = await this.generationService.generateForApplication(userId!, applicationId);
+      res.status(201).json({ message: "Interview questions generated", data });
+    } catch (error) {
+      handleErrors({ res, error });
+    }
+  }
 
   async getQuestions(req: IUserRequest, res: Response) {
     try {

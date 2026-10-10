@@ -8,9 +8,10 @@ const prepController = new InterviewPrepController();
 
 router.use(validateAccessToken);
 
-// Static paths first — /stats and /practice would otherwise be swallowed by /:id
+// Static paths first — /stats, /practice and /generate would otherwise be swallowed by /:id
 router.get("/stats", prepController.getStats.bind(prepController));
 router.post("/practice", prepController.recordPractice.bind(prepController));
+router.post("/generate", prepController.generateQuestions.bind(prepController));
 
 router.get("/", prepController.getQuestions.bind(prepController));
 router.post("/", prepController.createQuestion.bind(prepController));

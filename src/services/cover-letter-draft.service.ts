@@ -12,12 +12,10 @@ import {
   resumeText,
   type EvidencedTerm,
 } from "../lib/keyword-match";
-import { parseSections } from "../lib/resume-sections";
-import { CareerProfileRepository } from "../repositories/career-profile.repository";
 import { JobApplicationRepository } from "../repositories/job-application.repository";
-import { ResumeRepository } from "../repositories/resume/resume.repository";
 import type { DraftCoverLetterInput } from "../schemas/cover-letter";
 import type { ResumeDataInput } from "../schemas/resume-data";
+import { CandidateSourceService } from "./candidate-source.service";
 import { JobKeywordService, MAX_JOB_DESCRIPTION_CHARS } from "./job-keyword.service";
 
 const DRAFT_SYSTEM_PROMPT = `You are the candidate, writing your own cover letter in the first person from the facts in your resume. Breaking any rule below makes the letter unusable.
@@ -81,24 +79,9 @@ const splitSentences = function (paragraph: string) {
     .filter(Boolean);
 };
 
-// One unreadable legacy row must not stop the search for a usable source.
-const tryParseSections = function (record: Record<string, unknown>) {
-  try {
-    return parseSections(record);
-  } catch {
-    return null;
-  }
-};
-
-export interface DraftSource {
-  kind: "resume" | "profile";
-  title: string;
-}
-
 export class CoverLetterDraftService {
   private applicationRepo = new JobApplicationRepository();
-  private resumeRepo = new ResumeRepository();
-  private careerProfileRepo = new CareerProfileRepository();
+  private candidateSource = new CandidateSourceService();
   private keywordService = new JobKeywordService();
 
   /*
@@ -118,7 +101,10 @@ export class CoverLetterDraftService {
     const application = input.applicationId ? await this.applicationRepo.findById(input.applicationId, userId) : null;
     if (input.applicationId && !application) throw new NotFoundError("Application not found");
 
-    const source = await this.resolveSource(userId, application?.resumeId ?? null);
+    const source = await this.candidateSource.find(userId, application?.resumeId ?? null);
+    if (!source) {
+      throw new BadRequestError("Add your work experience to your career profile or a resume first. The draft is written from it.");
+    }
 
     // One quota unit per draft, though it can take up to three model calls.
     await consumeAiQuota(userId);
@@ -233,26 +219,5 @@ export class CoverLetterDraftService {
       keptWords: body.split(/\s+/).filter(Boolean).length,
       addedTerms: guard.addedTerms.filter((entry: EvidencedTerm) => containsTerm(normalizedBody, entry.term)),
     };
-  }
-
-  // The resume attached to the application says most about how the candidate
-  // pitched this role, so it wins; then the career profile; then the latest resume.
-  private async resolveSource(userId: string, attachedResumeId: string | null): Promise<{ data: ResumeDataInput; label: DraftSource }> {
-    if (attachedResumeId) {
-      const resume = await this.resumeRepo.findById(attachedResumeId, userId);
-      const data = resume ? tryParseSections(resume) : null;
-      if (resume && data?.experience?.length) return { data, label: { kind: "resume", title: resume.title } };
-    }
-
-    const profile = await this.careerProfileRepo.findByUser(userId);
-    const profileData = profile ? tryParseSections(profile) : null;
-    if (profileData?.experience?.length) return { data: profileData, label: { kind: "profile", title: "Career profile" } };
-
-    for (const resume of await this.resumeRepo.findManyByUser(userId)) {
-      const data = tryParseSections(resume);
-      if (data?.experience?.length) return { data, label: { kind: "resume", title: resume.title } };
-    }
-
-    throw new BadRequestError("Add your work experience to your career profile or a resume first. The draft is written from it.");
   }
 }
