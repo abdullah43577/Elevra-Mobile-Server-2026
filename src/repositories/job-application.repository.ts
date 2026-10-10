@@ -103,6 +103,16 @@ export class JobApplicationRepository {
     });
   }
 
+  // Transcribed voice memos linked to an application — a post-interview debrief
+  // is what a thank-you note should draw on.
+  async findLinkedTranscripts(applicationId: string, userId: string) {
+    const links = await prisma.applicationRecording.findMany({
+      where: { applicationId, application: { userId }, recording: { isTranscribed: true } },
+      select: { recording: { select: { transcription: true } } },
+    });
+    return links.map(link => link.recording.transcription).filter((text): text is string => !!text?.trim());
+  }
+
   async updateJobKeywords(id: string, userId: string, keywords: Prisma.InputJsonValue, hash: string) {
     return prisma.jobApplication.update({
       where: { id, userId },

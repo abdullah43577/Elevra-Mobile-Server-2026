@@ -3,15 +3,8 @@ import { generateJson } from "../lib/ai";
 import { consumeAiQuota } from "../lib/ai-quota";
 import { assertPro, PRO_FEATURES } from "../lib/entitlements";
 import { AiUnavailableError, BadRequestError, NotFoundError } from "../lib/errors";
-import {
-  buildClaimGuard,
-  containsTerm,
-  contentWords,
-  groundedShare,
-  normalizeText,
-  resumeText,
-  type EvidencedTerm,
-} from "../lib/keyword-match";
+import { buildClaimGuard, containsTerm, contentWords, normalizeText, resumeText, type EvidencedTerm } from "../lib/keyword-match";
+import { filterSentences, LETTER_VOCABULARY } from "../lib/sentence-guard";
 import { JobApplicationRepository } from "../repositories/job-application.repository";
 import type { DraftCoverLetterInput } from "../schemas/cover-letter";
 import type { ResumeDataInput } from "../schemas/resume-data";
@@ -34,30 +27,6 @@ const draftOutputSchema = z.object({
   newTerms: z.array(z.object({ term: z.string(), evidence: z.string() })).optional(),
 });
 
-const MIN_GROUNDING = 0.5;
-
-/*
-  Ordinary letter vocabulary, ignored when measuring grounding. Without it the
-  polite parts of a letter ("I'd welcome the chance to talk") would count as
-  unsupported claims and be removed.
-*/
-const LETTER_VOCABULARY = new Set([
-  "welcome", "chance", "talk", "discuss", "discussing", "look", "looking", "forward", "help", "helping", "team", "teams",
-  "role", "position", "apply", "applying", "application", "opportunity", "contribute", "contributing", "bring", "bringing",
-  "work", "working", "thank", "thanks", "interest", "interested", "excited", "happy", "would", "love", "join", "joining",
-  "company", "believe", "skill", "skills", "background", "experience", "experienced", "match", "matches", "mirror",
-  "mirrors", "align", "aligns", "aligned", "fits", "current", "currently", "recent", "recently", "previous", "previously",
-  "most", "particularly", "especially", "directly", "there", "these", "those", "what", "make", "made", "making", "such",
-  "like", "just", "well", "both", "each", "many", "much", "very", "here", "time", "year", "years", "past", "last", "next",
-  "first", "them", "then", "know", "value", "goal", "goals", "ready", "able", "eager", "keen", "appeal", "appeals",
-  "appealing", "drawn", "speak", "call", "conversation", "meet", "meeting", "strong", "solid", "hands", "deep", "great",
-  "good", "including", "include", "includes",
-]);
-
-// A model told to stick to the resume will sometimes narrate it instead ("The
-// resume lists Node.js…"). True, grounded, and useless in a letter.
-const META_REFERENCE = /\b(the|this) (resume|candidate|posting|job description)\b|\bcandidate['’]?s?\b/i;
-
 // Scaled to how much there is to say, so a thin resume gets a short honest
 // letter instead of a long padded one — padding is where invention creeps in.
 const targetWordsFor = function (data: ResumeDataInput) {
@@ -65,18 +34,6 @@ const targetWordsFor = function (data: ResumeDataInput) {
     (data.experience ?? []).reduce((count, entry) => count + (entry.achievements?.length ?? 0) + (entry.description ? 1 : 0), 0) +
     (data.projects ?? []).filter(project => project.description).length;
   return Math.min(300, Math.max(140, 90 + facts * 30));
-};
-
-const GREETING = /^(dear|hi|hello|to whom)\b/i;
-const SIGN_OFF = /^(sincerely|best( regards)?|kind regards|warm regards|regards|yours( truly| sincerely)?|thank you)[,.!]?$/i;
-
-// Splits only where end punctuation is followed by whitespace, so "2.5 million"
-// stays one token for the number check.
-const splitSentences = function (paragraph: string) {
-  return paragraph
-    .split(/(?<=[.!?]["”’)]?)\s+/)
-    .map(sentence => sentence.trim())
-    .filter(Boolean);
 };
 
 export class CoverLetterDraftService {
@@ -192,22 +149,10 @@ export class CoverLetterDraftService {
     const numberSource = [candidateText, input.company, input.role].join(" ");
     const groundingSource = contentWords([candidateText, posting ?? "", input.company, input.role, input.recipientName ?? ""]);
 
-    const removed: string[] = [];
-    const paragraphs = output.paragraphs
-      .map(paragraph => paragraph.trim())
-      .filter(paragraph => paragraph && !GREETING.test(paragraph) && !SIGN_OFF.test(paragraph))
-      .map(paragraph => {
-        const kept = splitSentences(paragraph).filter(sentence => {
-          const supported =
-            !META_REFERENCE.test(sentence) &&
-            guard.isSupported(sentence, numberSource) &&
-            groundedShare([sentence], groundingSource, LETTER_VOCABULARY) >= MIN_GROUNDING;
-          if (!supported) removed.push(sentence);
-          return supported;
-        });
-        return kept.join(" ");
-      })
-      .filter(Boolean);
+    const { paragraphs, removed } = filterSentences(output.paragraphs, {
+      isSupported: sentence => guard.isSupported(sentence, numberSource),
+      grounding: { source: groundingSource, vocabulary: LETTER_VOCABULARY },
+    });
 
     const body = paragraphs.join("\n\n");
     const normalizedBody = normalizeText(body);

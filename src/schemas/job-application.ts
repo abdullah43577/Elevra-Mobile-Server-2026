@@ -61,6 +61,19 @@ export const linkRecordingSchema = z.object({
   recordingId: z.string().min(1),
 });
 
+export const messageKindSchema = z.enum(["FOLLOW_UP", "THANK_YOU", "ACCEPT_OFFER", "NEGOTIATE_OFFER", "DECLINE_OFFER", "REJECTION_REPLY"]);
+
+export type MessageKind = z.infer<typeof messageKindSchema>;
+
+export const draftMessageSchema = z.object({
+  kind: messageKindSchema,
+  interviewerName: z.string().trim().min(1).max(80).optional(),
+  // Anything the user wants mentioned — what was discussed, a figure to ask about.
+  points: z.string().trim().min(1).max(1000).optional(),
+});
+
+export type DraftMessageInput = z.infer<typeof draftMessageSchema>;
+
 // Exactly one of a link or pasted posting text.
 export const parseJobSchema = z
   .object({

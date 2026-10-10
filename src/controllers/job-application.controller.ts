@@ -6,10 +6,12 @@ import {
   getJobApplicationsQuerySchema,
   linkNoteSchema,
   linkRecordingSchema,
+  draftMessageSchema,
   parseJobSchema,
   tailorResumeSchema,
   updateJobApplicationSchema,
 } from "../schemas/job-application";
+import { ApplicationMessageService } from "../services/application-message.service";
 import { JobApplicationService } from "../services/job-application.service";
 import { JobImportService } from "../services/job-import.service";
 import { ReminderService } from "../services/reminder.service";
@@ -21,6 +23,20 @@ export class JobApplicationController {
   private reminderService = new ReminderService();
   private tailorService = new ResumeTailorService();
   private importService = new JobImportService();
+  private messageService = new ApplicationMessageService();
+
+  async draftMessage(req: IUserRequest, res: Response) {
+    try {
+      const { userId } = req;
+      const { id } = req.params;
+      const input = draftMessageSchema.parse(req.body);
+
+      const data = await this.messageService.draft(userId!, id as string, input);
+      res.status(200).json({ message: "Message drafted", data });
+    } catch (error) {
+      handleErrors({ res, error });
+    }
+  }
 
   async parseJob(req: IUserRequest, res: Response) {
     try {

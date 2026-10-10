@@ -37,6 +37,7 @@ router.delete("/:id/notes/:noteId", jobApplicationController.unlinkNote.bind(job
 
 router.post("/:id/tailor", jobApplicationController.tailorResume.bind(jobApplicationController));
 router.get("/:id/match", jobApplicationController.getMatch.bind(jobApplicationController));
+router.post("/:id/messages", jobApplicationController.draftMessage.bind(jobApplicationController));
 
 router.post("/:id/recordings", jobApplicationController.linkRecording.bind(jobApplicationController));
 router.delete("/:id/recordings/:recordingId", jobApplicationController.unlinkRecording.bind(jobApplicationController));
