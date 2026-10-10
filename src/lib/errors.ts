@@ -61,3 +61,17 @@ export class EmailNotVerifiedError extends AppError {
     super(message, 403, "EMAIL_NOT_VERIFIED");
   }
 }
+
+// Every provider in the chain failed. A normal, temporary state the client
+// presents as "try again shortly" rather than as an error.
+export class AiUnavailableError extends AppError {
+  constructor(message = "AI is busy right now. Please try again in a moment.") {
+    super(message, 503, "AI_UNAVAILABLE");
+  }
+}
+
+export class AiQuotaExceededError extends AppError {
+  constructor(message = "You've reached today's AI limit. It resets tomorrow.") {
+    super(message, 429, "AI_QUOTA_EXCEEDED");
+  }
+}

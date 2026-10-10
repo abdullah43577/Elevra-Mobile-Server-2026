@@ -6,7 +6,7 @@ import { createNoteSchema, getNotesQuerySchema, updateNoteSchema } from "../../s
 import { stripHtml } from "../../lib/strip-html";
 import { SSEHelper } from "../../services/sse.service";
 import { NotificationService } from "../../services/notification.service";
-import { assertPro, PRO_FEATURES } from "../../lib/entitlements";
+import { AppError } from "../../lib/errors";
 
 export class NoteController {
   private noteService = new NoteService();
@@ -152,12 +152,12 @@ export class NoteController {
     /*
       Checked before the SSEHelper exists. Its constructor flushes the
       event-stream headers immediately, after which the status code is fixed —
-      a free user would get "200 OK" carrying an error event instead of a 402.
-      NoteService.streamSummary asserts again; that one is the security
-      boundary, this one is purely so the status code is honest.
+      a free user would get "200 OK" carrying an error event instead of a 402,
+      and an exhausted quota a 200 instead of a 429. NoteService.streamSummary
+      checks again; that one is the boundary, this one keeps the status honest.
     */
     try {
-      await assertPro(userId!, PRO_FEATURES.AI_NOTE_SUMMARY);
+      await this.noteService.assertCanSummarize(userId!);
     } catch (error) {
       return handleErrors({ res, error });
     }
@@ -188,13 +188,14 @@ export class NoteController {
         return;
       }
 
-      // Stream the summary from Gemini
-      let fullSummary = "";
+      let streamed = "";
 
-      await this.noteService.streamSummary(userId!, plainText, (chunk: string) => {
+      // Keeps going after a disconnect on purpose: the summary is still saved
+      // and the notification below tells the user it is ready.
+      const fullSummary = await this.noteService.streamSummary(userId!, plainText, (chunk: string) => {
         if (!isStreaming) return;
-        fullSummary += chunk;
-        sse.sendChunk(chunk, fullSummary);
+        streamed += chunk;
+        sse.sendChunk(chunk, streamed);
       });
 
       // Save the full summary to the database
@@ -214,8 +215,8 @@ export class NoteController {
       sse.close();
     } catch (error: any) {
       const errorMessage = error.message || "An unknown error occurred";
-      sse.sendError(errorMessage);
-      console.error("Summary generation error:", error);
+      sse.sendError(errorMessage, error instanceof AppError ? error.code : undefined);
+      if (!(error instanceof AppError)) console.error("Summary generation error:", error);
     }
   }
 }

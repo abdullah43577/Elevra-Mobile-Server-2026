@@ -1,15 +1,25 @@
+import { streamText } from "../../lib/ai";
+import { assertAiQuota, consumeAiQuota } from "../../lib/ai-quota";
 import { assertPro, PRO_FEATURES } from "../../lib/entitlements";
 import { BadRequestError, NotFoundError } from "../../lib/errors";
 import { FolderRepository } from "../../repositories/notes/folder.repository";
 import { NoteRepository } from "../../repositories/notes/note.repository";
 import { TagRepository } from "../../repositories/notes/tag.repository";
-import { GeminiService } from "../gemini.service";
+
+const SUMMARY_SYSTEM_PROMPT = [
+  "You summarise a person's own notes for them.",
+  "Write 2-3 plain sentences covering the main topic and the key takeaways, in the note's language.",
+  "No preamble, no headings, no markdown, no bullet points.",
+].join(" ");
+
+// Far beyond any normal note; keeps one pasted book from eating a provider's
+// per-minute token budget for everyone.
+const MAX_SUMMARY_INPUT_CHARS = 40_000;
 
 export class NoteService {
   private noteRepo = new NoteRepository();
   private folderRepo = new FolderRepository();
   private tagRepo = new TagRepository();
-  private geminiService = new GeminiService();
 
   async getNotes(userId: string, options?: { folderId?: string; search?: string }) {
     // Build options with conditional spreading to avoid undefined values
@@ -123,18 +133,32 @@ export class NoteService {
     });
   }
 
-  /**
-   * Stream the summary generation
-   */
-  /*
-    Takes userId purely so the entitlement check lives here rather than in the
-    controller. A controller-only guard is bypassed the moment a second route
-    points at this method.
-  */
-  async streamSummary(userId: string, text: string, onChunk: (chunk: string) => void): Promise<void> {
+  // Read-only pre-check for the controller, which must refuse before the SSE
+  // headers go out or the status code is fixed at 200.
+  async assertCanSummarize(userId: string) {
     await assertPro(userId, PRO_FEATURES.AI_NOTE_SUMMARY);
+    await assertAiQuota(userId);
+  }
 
-    await this.geminiService.generateSummaryStream(text, onChunk);
+  /*
+    Takes userId purely so the entitlement and quota checks live here rather
+    than in the controller. A controller-only guard is bypassed the moment a
+    second route points at this method.
+  */
+  async streamSummary(userId: string, text: string, onChunk: (chunk: string) => void): Promise<string> {
+    await assertPro(userId, PRO_FEATURES.AI_NOTE_SUMMARY);
+    await consumeAiQuota(userId);
+
+    const { text: summary } = await streamText({
+      system: SUMMARY_SYSTEM_PROMPT,
+      prompt: text.slice(0, MAX_SUMMARY_INPUT_CHARS),
+      temperature: 0.3,
+      reasoningEffort: "low",
+      maxTokens: 2048,
+      onChunk,
+    });
+
+    return summary.trim();
   }
 
   /**

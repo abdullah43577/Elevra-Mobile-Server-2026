@@ -51,8 +51,8 @@ export class SSEHelper {
   /**
    * Send an error message
    */
-  sendError(error: string) {
-    this.send({ error });
+  sendError(error: string, code?: string) {
+    this.send({ error, ...(code && { code }) });
     this.close();
   }
 

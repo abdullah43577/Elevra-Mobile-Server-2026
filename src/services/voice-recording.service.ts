@@ -89,8 +89,7 @@ export class VoiceRecordingService {
   async transcribeRecording(recordingId: string, userId: string) {
     const recording = await this.getRecordingById(recordingId, userId);
 
-    // TODO: Implement AI transcription using Gemini
-    // This will be added after the quota resets
+    // TODO: Groq Whisper via src/lib/ai.ts — roadmap F2 (CLAUDE.md §27)
 
     throw new Error("AI transcription coming soon!");
   }
