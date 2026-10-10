@@ -1,4 +1,3 @@
-import { assertPro, PRO_FEATURES } from "../../lib/entitlements";
 import { ResumeRepository } from "../../repositories/resume/resume.repository";
 import { TemplateService } from "./template.service";
 import { BadRequestError, NotFoundError } from "../../lib/errors";
@@ -145,12 +144,10 @@ export class ResumeService {
     emit real selectable text. Server-side rendering would mean shipping
     Chromium alongside the API for something the phone already does well.
 
-    This endpoint exists so lastExportedAt is tracked and, once subscriptions
-    land, so export can be gated somewhere the client cannot bypass.
+    This endpoint only tracks lastExportedAt. Export is free (client CLAUDE.md
+    §31, decision 1), so there is nothing to gate here.
   */
   async exportResume(resumeId: string, userId: string) {
-    await assertPro(userId, PRO_FEATURES.RESUME_EXPORT);
-
     const resume = await this.getResumeById(resumeId, userId);
 
     await this.resumeRepo.updateLastExported(resumeId, userId);

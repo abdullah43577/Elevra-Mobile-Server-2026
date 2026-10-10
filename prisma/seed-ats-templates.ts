@@ -176,7 +176,6 @@ async function main() {
         layoutKey: item.layoutKey,
         themeId,
         defaultData: SAMPLE,
-        isPremium: false,
         isActive: true,
       },
       update: {

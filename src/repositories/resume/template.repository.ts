@@ -2,13 +2,12 @@ import type { Prisma } from "../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
 
 export class TemplateRepository {
-  async findMany(options?: { category?: string; isPremium?: boolean; search?: string }) {
-    const { category, isPremium, search } = options || {};
+  async findMany(options?: { category?: string; search?: string }) {
+    const { category, search } = options || {};
 
     const where: Prisma.TemplateWhereInput = {
       isActive: true,
       ...(category && { category }),
-      ...(isPremium !== undefined && { isPremium }),
       ...(search && {
         OR: [{ name: { contains: search, mode: "insensitive" } }, { description: { contains: search, mode: "insensitive" } }],
       }),
@@ -17,7 +16,7 @@ export class TemplateRepository {
     return prisma.template.findMany({
       where,
       include: { theme: true },
-      orderBy: [{ isPremium: "desc" }, { name: "asc" }],
+      orderBy: { name: "asc" },
     });
   }
 
@@ -29,8 +28,8 @@ export class TemplateRepository {
   }
 
   // Admin methods (for seeding)
-  async create(data: { name: string; description?: string; category: string; layoutKey: string; themeId: string; defaultData: any; sections?: any; styles?: any; isPremium?: boolean }) {
-    const { name, description, category, layoutKey, themeId, defaultData, sections, styles, isPremium } = data;
+  async create(data: { name: string; description?: string; category: string; layoutKey: string; themeId: string; defaultData: any; sections?: any; styles?: any }) {
+    const { name, description, category, layoutKey, themeId, defaultData, sections, styles } = data;
 
     return prisma.template.create({
       data: {
@@ -42,7 +41,6 @@ export class TemplateRepository {
         ...(description && { description }),
         ...(sections && { sections }),
         ...(styles && { styles }),
-        ...(isPremium !== undefined && { isPremium }),
       },
     });
   }

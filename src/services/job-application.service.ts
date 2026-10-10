@@ -32,7 +32,16 @@ export class JobApplicationService {
     },
   ) {
     try {
-      return await this.applicationRepo.findManyByUser(userId, options);
+      const applications = await this.applicationRepo.findManyByUser(userId, options);
+      const progress = await this.applicationRepo.findPrepProgress(
+        applications.map(application => application.id),
+        userId,
+      );
+
+      return applications.map(application => ({
+        ...application,
+        prep: progress.get(application.id) ?? { pinned: 0, rehearsed: 0 },
+      }));
     } catch (error) {
       throw error;
     }

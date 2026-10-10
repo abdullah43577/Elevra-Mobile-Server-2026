@@ -194,6 +194,33 @@ export class JobApplicationRepository {
     });
   }
 
+  /*
+    Per application: how many questions are pinned, and how many of those the
+    user has rehearsed at least once. Feeds each row's next step on the client.
+    One query for the whole list rather than an include per row, because the
+    answer has to be filtered to this user.
+  */
+  async findPrepProgress(applicationIds: string[], userId: string) {
+    const pins = await prisma.applicationQuestion.findMany({
+      where: { applicationId: { in: applicationIds } },
+      select: {
+        applicationId: true,
+        question: {
+          select: { answers: { where: { userId, practiceCount: { gt: 0 } }, select: { id: true } } },
+        },
+      },
+    });
+
+    const progress = new Map<string, { pinned: number; rehearsed: number }>();
+    for (const pin of pins) {
+      const entry = progress.get(pin.applicationId) ?? { pinned: 0, rehearsed: 0 };
+      entry.pinned += 1;
+      if (pin.question.answers.length) entry.rehearsed += 1;
+      progress.set(pin.applicationId, entry);
+    }
+    return progress;
+  }
+
   async markReminded(ids: string[], at: Date) {
     return prisma.jobApplication.updateMany({
       where: { id: { in: ids } },

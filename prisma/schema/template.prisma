@@ -82,7 +82,6 @@ model Template {
   // Sample resume content used to render the template's preview/thumbnail.
   defaultData Json
 
-  isPremium   Boolean    @default(false)
   isActive    Boolean    @default(true)
 
   resumes     Resume[]
@@ -93,6 +92,5 @@ model Template {
 
   @@index([category])
   @@index([layoutKey])
-  @@index([isPremium])
 }
 

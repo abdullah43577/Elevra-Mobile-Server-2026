@@ -1,4 +1,3 @@
-import { assertPro, PRO_FEATURES } from "../lib/entitlements";
 import { BadRequestError, NotFoundError } from "../lib/errors";
 import {
   CoverLetterRepository,
@@ -89,7 +88,6 @@ export class CoverLetterService {
     cannot bypass the check.
   */
   async exportCoverLetter(coverLetterId: string, userId: string) {
-    await assertPro(userId, PRO_FEATURES.COVER_LETTER_EXPORT);
 
     const coverLetter = await this.getCoverLetterById(coverLetterId, userId);
 

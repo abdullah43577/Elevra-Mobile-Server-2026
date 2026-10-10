@@ -11,10 +11,6 @@ export const duplicateResumeSchema = z.object({
 
 export const getTemplatesQuerySchema = z.object({
   category: z.string().optional(),
-  isPremium: z
-    .enum(["true", "false"])
-    .optional()
-    .transform(val => (val === undefined ? undefined : val === "true")),
   search: z.string().optional(),
 });
 

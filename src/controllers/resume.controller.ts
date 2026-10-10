@@ -13,11 +13,10 @@ export class ResumeController {
 
   async getTemplates(req: IUserRequest, res: Response) {
     try {
-      const { category, isPremium, search } = getTemplatesQuerySchema.parse(req.query);
+      const { category, search } = getTemplatesQuerySchema.parse(req.query);
 
       const templates = await this.templateService.getTemplates({
         ...(category && { category }),
-        ...(isPremium && { isPremium }),
         ...(search && { search }),
       });
 

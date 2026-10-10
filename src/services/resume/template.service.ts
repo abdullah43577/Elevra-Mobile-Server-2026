@@ -4,7 +4,7 @@ import { NotFoundError } from "../../lib/errors";
 export class TemplateService {
   private templateRepo = new TemplateRepository();
 
-  async getTemplates(options?: { category?: string; isPremium?: boolean; search?: string }) {
+  async getTemplates(options?: { category?: string; search?: string }) {
     return this.templateRepo.findMany(options);
   }
 

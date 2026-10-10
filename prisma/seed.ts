@@ -104,7 +104,6 @@ async function seedTemplates() {
           { name: "Digital Marketing", level: "advanced" },
         ],
       },
-      isPremium: false,
     },
     {
       name: "Creative Portfolio",
@@ -152,7 +151,6 @@ async function seedTemplates() {
           },
         ],
       },
-      isPremium: true,
     },
     {
       name: "Minimal Classic",
@@ -194,7 +192,6 @@ async function seedTemplates() {
           { name: "Node.js", level: "advanced" },
         ],
       },
-      isPremium: false,
     },
     {
       name: "Executive Suite",
@@ -236,7 +233,6 @@ async function seedTemplates() {
           { name: "AI/ML Strategy", level: "advanced" },
         ],
       },
-      isPremium: true,
     },
   ];
 

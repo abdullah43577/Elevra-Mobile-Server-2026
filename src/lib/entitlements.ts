@@ -6,23 +6,18 @@ import { prisma } from "./prisma";
   What Pro actually buys. Kept in one place so the answer to "is this paid?" is
   never spread across call sites.
 
-  The principle: users pay for what costs us money (AI inference) or for the
-  finished deliverable (the exported PDF). Building is always free — capping
-  notes, recordings, applications, or resumes makes the app feel broken rather
-  than limited, and drives uninstalls instead of upgrades.
+  The principle: users pay for what costs us money — AI inference. Building
+  and exporting are free: capping notes, recordings, applications or resumes
+  makes the app feel broken rather than limited, and charging to download your
+  own file reads as a hostage fee when every free editor does it. New users try
+  Pro through the store's free trial, not through a counter here.
 
   Templates are deliberately NOT gated. The catalogue was built around ATS
   quality; charging for some of it means knowingly handing free users a worse
-  resume, and export is already the gate.
+  resume.
 */
 export const PRO_FEATURES = {
-  RESUME_EXPORT: "resume_export",
-  COVER_LETTER_EXPORT: "cover_letter_export",
   AI_NOTE_SUMMARY: "ai_note_summary",
-  AI_REWRITER: "ai_rewriter",
-  AI_CHAT: "ai_chat",
-  AI_CAREER_TOOLS: "ai_career_tools",
-  AI_RESUME_BUILDER: "ai_resume_builder",
   AI_RESUME_TAILOR: "ai_resume_tailor",
   AI_COVER_LETTER: "ai_cover_letter",
   AI_INTERVIEW_QUESTIONS: "ai_interview_questions",
@@ -59,13 +54,7 @@ export const assertPro = async function (userId: string, feature: ProFeature) {
 };
 
 const FEATURE_MESSAGES: Record<ProFeature, string> = {
-  [PRO_FEATURES.RESUME_EXPORT]: "Exporting a resume as PDF requires Elevra Pro",
-  [PRO_FEATURES.COVER_LETTER_EXPORT]: "Exporting a cover letter as PDF requires Elevra Pro",
   [PRO_FEATURES.AI_NOTE_SUMMARY]: "AI summaries require Elevra Pro",
-  [PRO_FEATURES.AI_REWRITER]: "The AI rewriter requires Elevra Pro",
-  [PRO_FEATURES.AI_CHAT]: "AI chat requires Elevra Pro",
-  [PRO_FEATURES.AI_CAREER_TOOLS]: "Career tools require Elevra Pro",
-  [PRO_FEATURES.AI_RESUME_BUILDER]: "The AI resume builder requires Elevra Pro",
   [PRO_FEATURES.AI_RESUME_TAILOR]: "Tailoring a resume to a job requires Elevra Pro",
   [PRO_FEATURES.AI_COVER_LETTER]: "Drafting a cover letter with AI requires Elevra Pro",
   [PRO_FEATURES.AI_INTERVIEW_QUESTIONS]: "Interview questions for a specific job require Elevra Pro",
