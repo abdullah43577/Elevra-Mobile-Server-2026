@@ -23,6 +23,7 @@ export const PRO_FEATURES = {
   AI_CHAT: "ai_chat",
   AI_CAREER_TOOLS: "ai_career_tools",
   AI_RESUME_BUILDER: "ai_resume_builder",
+  AI_RESUME_TAILOR: "ai_resume_tailor",
   VOICE_TRANSCRIPTION: "voice_transcription",
 } as const;
 
@@ -61,5 +62,6 @@ const FEATURE_MESSAGES: Record<ProFeature, string> = {
   [PRO_FEATURES.AI_CHAT]: "AI chat requires Elevra Pro",
   [PRO_FEATURES.AI_CAREER_TOOLS]: "Career tools require Elevra Pro",
   [PRO_FEATURES.AI_RESUME_BUILDER]: "The AI resume builder requires Elevra Pro",
+  [PRO_FEATURES.AI_RESUME_TAILOR]: "Tailoring a resume to a job requires Elevra Pro",
   [PRO_FEATURES.VOICE_TRANSCRIPTION]: "Voice transcription requires Elevra Pro",
 };

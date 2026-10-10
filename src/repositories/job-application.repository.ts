@@ -103,6 +103,14 @@ export class JobApplicationRepository {
     });
   }
 
+  async updateJobKeywords(id: string, userId: string, keywords: Prisma.InputJsonValue, hash: string) {
+    return prisma.jobApplication.update({
+      where: { id, userId },
+      data: { jobKeywords: keywords, jobKeywordsHash: hash },
+      select: { id: true },
+    });
+  }
+
   async delete(id: string, userId: string) {
     return prisma.jobApplication.delete({
       where: { id, userId },

@@ -20,6 +20,9 @@ router.delete("/:id", jobApplicationController.deleteApplication.bind(jobApplica
 router.post("/:id/notes", jobApplicationController.linkNote.bind(jobApplicationController));
 router.delete("/:id/notes/:noteId", jobApplicationController.unlinkNote.bind(jobApplicationController));
 
+router.post("/:id/tailor", jobApplicationController.tailorResume.bind(jobApplicationController));
+router.get("/:id/match", jobApplicationController.getMatch.bind(jobApplicationController));
+
 router.post("/:id/recordings", jobApplicationController.linkRecording.bind(jobApplicationController));
 router.delete("/:id/recordings/:recordingId", jobApplicationController.unlinkRecording.bind(jobApplicationController));
 

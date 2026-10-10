@@ -28,6 +28,15 @@ export class ResumeRepository {
     });
   }
 
+  async findLatestTemplateId(userId: string) {
+    const latest = await prisma.resume.findFirst({
+      where: { userId, template: { isActive: true } },
+      orderBy: { updatedAt: "desc" },
+      select: { templateId: true },
+    });
+    return latest?.templateId ?? null;
+  }
+
   async create(data: { userId: string; title: string; templateId: string; personalInfo?: any; experience?: any; education?: any; skills?: any; languages?: any; certifications?: any; projects?: any; references?: any }) {
     const { userId, title, templateId, ...rest } = data;
 

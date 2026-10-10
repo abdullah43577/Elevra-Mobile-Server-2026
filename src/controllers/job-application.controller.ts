@@ -6,15 +6,43 @@ import {
   getJobApplicationsQuerySchema,
   linkNoteSchema,
   linkRecordingSchema,
+  tailorResumeSchema,
   updateJobApplicationSchema,
 } from "../schemas/job-application";
 import { JobApplicationService } from "../services/job-application.service";
 import { ReminderService } from "../services/reminder.service";
+import { ResumeTailorService } from "../services/resume-tailor.service";
 import type { JobApplicationWriteData } from "../repositories/job-application.repository";
 
 export class JobApplicationController {
   private applicationService = new JobApplicationService();
   private reminderService = new ReminderService();
+  private tailorService = new ResumeTailorService();
+
+  async tailorResume(req: IUserRequest, res: Response) {
+    try {
+      const { userId } = req;
+      const { id } = req.params;
+      const { baseResumeId } = tailorResumeSchema.parse(req.body ?? {});
+
+      const data = await this.tailorService.tailorResume(id as string, userId!, baseResumeId);
+      res.status(201).json({ message: "Resume tailored successfully", data });
+    } catch (error) {
+      handleErrors({ res, error });
+    }
+  }
+
+  async getMatch(req: IUserRequest, res: Response) {
+    try {
+      const { userId } = req;
+      const { id } = req.params;
+
+      const match = await this.tailorService.getMatch(id as string, userId!);
+      res.status(200).json({ message: "Match fetched successfully", data: match });
+    } catch (error) {
+      handleErrors({ res, error });
+    }
+  }
 
   async getApplications(req: IUserRequest, res: Response) {
     try {

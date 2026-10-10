@@ -60,3 +60,8 @@ export const linkNoteSchema = z.object({
 export const linkRecordingSchema = z.object({
   recordingId: z.string().min(1),
 });
+
+// No baseResumeId means tailor from the career profile.
+export const tailorResumeSchema = z.object({
+  baseResumeId: z.string().min(1).optional(),
+});
