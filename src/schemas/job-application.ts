@@ -61,6 +61,16 @@ export const linkRecordingSchema = z.object({
   recordingId: z.string().min(1),
 });
 
+// Exactly one of a link or pasted posting text.
+export const parseJobSchema = z
+  .object({
+    url: z.string().trim().min(1).max(2000).optional(),
+    text: z.string().trim().min(1).max(50_000).optional(),
+  })
+  .refine(value => !!value.url !== !!value.text, { message: "Send either a link or the posting text" });
+
+export type ParseJobInput = z.infer<typeof parseJobSchema>;
+
 // No baseResumeId means tailor from the career profile.
 export const tailorResumeSchema = z.object({
   baseResumeId: z.string().min(1).optional(),

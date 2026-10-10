@@ -6,10 +6,12 @@ import {
   getJobApplicationsQuerySchema,
   linkNoteSchema,
   linkRecordingSchema,
+  parseJobSchema,
   tailorResumeSchema,
   updateJobApplicationSchema,
 } from "../schemas/job-application";
 import { JobApplicationService } from "../services/job-application.service";
+import { JobImportService } from "../services/job-import.service";
 import { ReminderService } from "../services/reminder.service";
 import { ResumeTailorService } from "../services/resume-tailor.service";
 import type { JobApplicationWriteData } from "../repositories/job-application.repository";
@@ -18,6 +20,19 @@ export class JobApplicationController {
   private applicationService = new JobApplicationService();
   private reminderService = new ReminderService();
   private tailorService = new ResumeTailorService();
+  private importService = new JobImportService();
+
+  async parseJob(req: IUserRequest, res: Response) {
+    try {
+      const { userId } = req;
+      const input = parseJobSchema.parse(req.body);
+
+      const data = await this.importService.parse(userId!, input);
+      res.status(200).json({ message: "Posting read successfully", data });
+    } catch (error) {
+      handleErrors({ res, error });
+    }
+  }
 
   async tailorResume(req: IUserRequest, res: Response) {
     try {
