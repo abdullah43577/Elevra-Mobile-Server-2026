@@ -1,4 +1,5 @@
 import type { AnswerStatus, InterviewCategory } from "../generated/prisma/client";
+import { Prisma } from "../generated/prisma/client";
 import { BadRequestError, ForbiddenError, NotFoundError } from "../lib/errors";
 import {
   InterviewPrepRepository,
@@ -83,6 +84,9 @@ export class InterviewPrepService {
     return this.prepRepo.upsertAnswer(userId, questionId, {
       audioUrl: upload.secure_url,
       audioDuration: duration,
+      // A new take makes the last one's transcript and coaching meaningless.
+      transcript: null,
+      feedback: Prisma.DbNull,
     });
   }
 
@@ -93,6 +97,8 @@ export class InterviewPrepService {
     return this.prepRepo.upsertAnswer(userId, questionId, {
       audioUrl: null,
       audioDuration: null,
+      transcript: null,
+      feedback: Prisma.DbNull,
     });
   }
 

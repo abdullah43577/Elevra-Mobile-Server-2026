@@ -22,6 +22,7 @@ router.delete("/:id", prepController.deleteQuestion.bind(prepController));
 router.put("/:id/answer", prepController.saveAnswer.bind(prepController));
 router.post("/:id/answer/audio", upload.single("audio"), prepController.uploadAnswerAudio.bind(prepController));
 router.delete("/:id/answer/audio", prepController.deleteAnswerAudio.bind(prepController));
+router.post("/:id/answer/coach", prepController.coachAnswer.bind(prepController));
 
 router.post("/:id/applications/:applicationId", prepController.linkToApplication.bind(prepController));
 router.delete("/:id/applications/:applicationId", prepController.unlinkFromApplication.bind(prepController));

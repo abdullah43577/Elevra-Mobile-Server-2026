@@ -113,7 +113,6 @@ export class VoiceRecordingController {
     }
   }
 
-  // 🔒 AI Transcription - Coming Soon
   async transcribeRecording(req: IUserRequest, res: Response) {
     try {
       const { userId } = req;
@@ -122,7 +121,7 @@ export class VoiceRecordingController {
       const result = await this.voiceService.transcribeRecording(id as string, userId!);
 
       res.status(200).json({
-        message: "Transcription started successfully",
+        message: "Recording transcribed",
         data: result,
       });
     } catch (error) {

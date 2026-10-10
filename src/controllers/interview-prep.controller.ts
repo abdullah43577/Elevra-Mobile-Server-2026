@@ -11,11 +11,25 @@ import {
   uploadAnswerAudioSchema,
 } from "../schemas/interview-prep";
 import { InterviewPrepService } from "../services/interview-prep.service";
+import { AnswerCoachingService } from "../services/answer-coaching.service";
 import { InterviewQuestionGenerationService } from "../services/interview-question-generation.service";
 
 export class InterviewPrepController {
   private prepService = new InterviewPrepService();
   private generationService = new InterviewQuestionGenerationService();
+  private coachingService = new AnswerCoachingService();
+
+  async coachAnswer(req: IUserRequest, res: Response) {
+    try {
+      const { userId } = req;
+      const { id } = req.params;
+
+      const answer = await this.coachingService.coachAnswer(userId!, id as string);
+      res.status(200).json({ message: "Answer reviewed", data: answer });
+    } catch (error) {
+      handleErrors({ res, error });
+    }
+  }
 
   async generateQuestions(req: IUserRequest, res: Response) {
     try {

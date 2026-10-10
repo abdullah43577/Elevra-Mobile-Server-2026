@@ -1,10 +1,16 @@
+import { transcribe } from "../lib/ai";
+import { consumeAiQuota } from "../lib/ai-quota";
+import { assertPro, PRO_FEATURES } from "../lib/entitlements";
+import { BadRequestError, NoSpeechError, NotFoundError } from "../lib/errors";
+import { fetchStoredAudio } from "../lib/remote-audio";
 import { VoiceRecordingRepository } from "../repositories/voice-recording.repository";
-import { BadRequestError, NotFoundError } from "../lib/errors";
 import { CloudinaryService } from "./cloudinary.service";
+import { NotificationService } from "./notification.service";
 
 export class VoiceRecordingService {
   private voiceRepo = new VoiceRecordingRepository();
   private cloudinaryService = new CloudinaryService();
+  private notificationService = new NotificationService();
 
   async getRecordings(
     userId: string,
@@ -85,12 +91,36 @@ export class VoiceRecordingService {
     return this.voiceRepo.delete(recordingId, userId);
   }
 
-  // 🔒 AI Transcription - Coming Soon
+  /*
+    Pro (the existing VOICE_TRANSCRIPTION key). A recording is transcribed once:
+    asking again returns what is stored, with no model call and no quota. No
+    filler-preserving prompt here, unlike answer coaching — a memo should read
+    cleanly. The notification is what lets someone leave a long recording to
+    transcribe, as setup's notifications step promises.
+  */
   async transcribeRecording(recordingId: string, userId: string) {
+    await assertPro(userId, PRO_FEATURES.VOICE_TRANSCRIPTION);
+
     const recording = await this.getRecordingById(recordingId, userId);
+    if (recording.isTranscribed && recording.transcription) return recording;
 
-    // TODO: Groq Whisper via src/lib/ai.ts — roadmap F2 (CLAUDE.md §27)
+    const audio = await fetchStoredAudio(recording.fileUrl);
+    await consumeAiQuota(userId);
 
-    throw new Error("AI transcription coming soon!");
+    const transcription = await transcribe(audio.bytes, { filename: audio.filename });
+    if (!transcription) throw new NoSpeechError();
+
+    const updated = await this.voiceRepo.update(recordingId, userId, { transcription, isTranscribed: true });
+
+    await this.notificationService.notify({
+      userId,
+      type: "VOICE_TRANSCRIPTION",
+      title: "Transcription ready",
+      body: recording.title,
+      entityType: "recording",
+      entityId: recordingId,
+    });
+
+    return updated;
   }
 }

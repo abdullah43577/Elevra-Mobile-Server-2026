@@ -26,6 +26,7 @@ export const PRO_FEATURES = {
   AI_RESUME_TAILOR: "ai_resume_tailor",
   AI_COVER_LETTER: "ai_cover_letter",
   AI_INTERVIEW_QUESTIONS: "ai_interview_questions",
+  AI_ANSWER_COACHING: "ai_answer_coaching",
   VOICE_TRANSCRIPTION: "voice_transcription",
 } as const;
 
@@ -67,5 +68,6 @@ const FEATURE_MESSAGES: Record<ProFeature, string> = {
   [PRO_FEATURES.AI_RESUME_TAILOR]: "Tailoring a resume to a job requires Elevra Pro",
   [PRO_FEATURES.AI_COVER_LETTER]: "Drafting a cover letter with AI requires Elevra Pro",
   [PRO_FEATURES.AI_INTERVIEW_QUESTIONS]: "Interview questions for a specific job require Elevra Pro",
+  [PRO_FEATURES.AI_ANSWER_COACHING]: "Feedback on your recorded answers requires Elevra Pro",
   [PRO_FEATURES.VOICE_TRANSCRIPTION]: "Voice transcription requires Elevra Pro",
 };

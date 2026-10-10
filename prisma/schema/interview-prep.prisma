@@ -80,6 +80,11 @@ model InterviewAnswer {
   audioUrl       String?
   audioDuration  Int?
 
+  // From the take in audioUrl, never from an earlier one: uploading or deleting
+  // a take clears both, so feedback can never describe a recording that is gone.
+  transcript     String?
+  feedback       Json?
+
   status         AnswerStatus      @default(DRAFT)
 
   // Drives the practice runner's ordering: least-rehearsed and least-recent

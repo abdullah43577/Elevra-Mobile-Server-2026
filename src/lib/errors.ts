@@ -76,6 +76,13 @@ export class AiQuotaExceededError extends AppError {
   }
 }
 
+// A recording with no words in it — silence, or the mic was covered.
+export class NoSpeechError extends AppError {
+  constructor(message = "We couldn't hear any speech in that recording. Record it again a little closer to the microphone.") {
+    super(message, 422, "NO_SPEECH");
+  }
+}
+
 // The PDF has no text layer — almost always a scan or a photo. 422: the file
 // arrived fine, there is just nothing in it to read.
 export class PdfNoTextError extends AppError {

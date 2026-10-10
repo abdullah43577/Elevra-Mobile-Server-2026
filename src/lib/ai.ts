@@ -257,3 +257,52 @@ export const streamText = async function (options: StreamTextOptions): Promise<{
   console.error("[ai] all providers failed:", failures.join(" | "));
   throw new AiUnavailableError();
 };
+
+const GROQ_TRANSCRIPTION_URL = "https://api.groq.com/openai/v1/audio/transcriptions";
+const TRANSCRIPTION_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3"];
+
+export interface TranscribeOptions {
+  /** Whisper picks the decoder from the extension, so it must be right. */
+  filename: string;
+  prompt?: string;
+}
+
+/*
+  Groq only: OpenRouter has no speech-to-text, so the fallback is between
+  Groq's two Whisper models, and a missing key or both failing is
+  AI_UNAVAILABLE. Silence comes back as an empty string — the caller decides
+  what that means.
+*/
+export const transcribe = async function (audio: Uint8Array, options: TranscribeOptions): Promise<string> {
+  const apiKey = getEnv("GROQ_API_KEY")?.trim();
+  if (!apiKey) throw new AiUnavailableError();
+
+  const failures: string[] = [];
+
+  for (const model of TRANSCRIPTION_MODELS) {
+    try {
+      const form = new FormData();
+      form.append("file", new Blob([new Uint8Array(audio)]), options.filename);
+      form.append("model", model);
+      form.append("response_format", "json");
+      form.append("temperature", "0");
+      if (options.prompt) form.append("prompt", options.prompt);
+
+      const response = await fetch(GROQ_TRANSCRIPTION_URL, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}` },
+        body: form,
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+      if (!response.ok) throw new Error(`responded ${response.status}: ${(await response.text()).slice(0, 160)}`);
+
+      const data = (await response.json()) as { text?: string };
+      return (data.text ?? "").trim();
+    } catch (error) {
+      failures.push(`groq:${model}: ${describe(error)}`);
+    }
+  }
+
+  console.error("[ai] transcription failed:", failures.join(" | "));
+  throw new AiUnavailableError();
+};

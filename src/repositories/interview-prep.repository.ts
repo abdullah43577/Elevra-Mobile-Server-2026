@@ -29,6 +29,8 @@ export interface AnswerWriteData {
   status?: AnswerStatus;
   audioUrl?: string | null;
   audioDuration?: number | null;
+  transcript?: string | null;
+  feedback?: Prisma.InputJsonValue | typeof Prisma.DbNull;
 }
 
 export class InterviewPrepRepository {
@@ -107,6 +109,19 @@ export class InterviewPrepRepository {
       update: data,
       include: { question: true },
     });
+  }
+
+  /*
+    Saves coaching only if the take it was computed from is still the current
+    one. A new take uploaded while coaching ran would otherwise receive feedback
+    about the recording it replaced. Returns false when the take moved on.
+  */
+  async saveCoachingForTake(userId: string, questionId: string, audioUrl: string, data: { transcript: string; feedback: Prisma.InputJsonValue }) {
+    const { count } = await prisma.interviewAnswer.updateMany({
+      where: { userId, questionId, audioUrl },
+      data,
+    });
+    return count > 0;
   }
 
   async findAnswer(userId: string, questionId: string) {
