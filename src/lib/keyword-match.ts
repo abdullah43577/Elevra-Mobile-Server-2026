@@ -72,6 +72,77 @@ export const computeCoverage = function (keywords: JobKeyword[], data: ResumeDat
   };
 };
 
+// "one" is left out: it is far more often a pronoun than a quantity.
+const NUMBER_WORDS: Record<string, string> = {
+  two: "2", three: "3", four: "4", five: "5", six: "6", seven: "7", eight: "8", nine: "9", ten: "10",
+  eleven: "11", twelve: "12", fifteen: "15", twenty: "20", thirty: "30", forty: "40", fifty: "50", hundred: "100",
+};
+
+// Written-out numbers count too: in testing, a model wrote "three million"
+// where the digits would have been caught.
 export const numbersIn = function (text: string) {
-  return new Set((text.match(/\d+(?:[.,]\d+)*/g) ?? []).map(number => number.replace(/,/g, "")));
+  const digits = (text.match(/\d+(?:[.,]\d+)*/g) ?? []).map(number => number.replace(/,/g, ""));
+  const words = (text.toLowerCase().match(/[a-z]+/g) ?? []).flatMap(word => NUMBER_WORDS[word] ?? []);
+  return new Set([...digits, ...words]);
+};
+
+const STOPWORDS = new Set([
+  "with", "that", "from", "this", "have", "using", "into", "over", "more", "than", "were", "been", "they",
+  "their", "which", "also", "across", "while", "through", "within", "about", "when", "where", "your", "will",
+]);
+
+// A crude plural strip, applied to both sides of every comparison, so
+// "service" and "services" count as the same word.
+const stem = function (word: string) {
+  return word.length > 4 && word.endsWith("s") ? word.slice(0, -1) : word;
+};
+
+export const contentWords = function (texts: string[], ignored: ReadonlySet<string> = new Set()) {
+  return new Set(
+    normalizeText(texts.join(" "))
+      .split(" ")
+      .filter(word => word.length >= 4 && !STOPWORDS.has(word) && !ignored.has(word))
+      .map(stem),
+  );
+};
+
+// Share of the candidate text's content words that also appear in the source.
+export const groundedShare = function (candidate: string[], source: ReadonlySet<string>, ignored?: ReadonlySet<string>) {
+  const words = contentWords(candidate, ignored);
+  if (words.size === 0) return 1;
+
+  let shared = 0;
+  for (const word of words) if (source.has(word)) shared++;
+  return shared / words.size;
+};
+
+export interface EvidencedTerm {
+  term: string;
+  evidence: string;
+}
+
+/*
+  Decides whether model-written text claims only what the candidate's own
+  material supports. A job keyword the source lacks is allowed only when the
+  model quoted source text as evidence for it and the quote really is there;
+  a number is allowed only when the given number source contains it.
+*/
+export const buildClaimGuard = function (sourceText: string, keywords: JobKeyword[], newTerms: EvidencedTerm[] = []) {
+  const source = normalizeText(sourceText);
+
+  const addedTerms = newTerms.filter(
+    entry => entry.term.trim() && entry.evidence.trim().length >= 2 && containsTerm(source, entry.evidence),
+  );
+  const allowed = new Set(addedTerms.map(entry => normalizeText(entry.term)));
+  const blocked = keywords.filter(keyword => !containsTerm(source, keyword.term) && !allowed.has(normalizeText(keyword.term)));
+
+  const isSupported = function (text: string, numberSource: string) {
+    const sourceNumbers = numbersIn(numberSource);
+    const normalized = normalizeText(text);
+    const inventsNumber = [...numbersIn(text)].some(number => !sourceNumbers.has(number));
+    const usesBlockedTerm = blocked.some(keyword => containsTerm(normalized, keyword.term));
+    return !inventsNumber && !usesBlockedTerm;
+  };
+
+  return { addedTerms, isSupported };
 };

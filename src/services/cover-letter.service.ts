@@ -4,11 +4,13 @@ import {
   CoverLetterRepository,
   type CoverLetterWriteData,
 } from "../repositories/cover-letter.repository";
+import { JobApplicationRepository } from "../repositories/job-application.repository";
 import type { CreateCoverLetterInput } from "../schemas/cover-letter";
 import { TemplateService } from "./resume/template.service";
 
 export class CoverLetterService {
   private coverLetterRepo = new CoverLetterRepository();
+  private applicationRepo = new JobApplicationRepository();
   private templateService = new TemplateService();
 
   async getCoverLetters(userId: string, filters: { search?: string } = {}) {
@@ -30,7 +32,12 @@ export class CoverLetterService {
       throw new BadRequestError("Cover letter body is required");
     }
 
-    return this.coverLetterRepo.create({
+    // Checked before creating, so a bad id cannot leave an orphan letter behind.
+    if (data.applicationId && !(await this.applicationRepo.findById(data.applicationId, userId))) {
+      throw new NotFoundError("Application not found");
+    }
+
+    const coverLetter = await this.coverLetterRepo.create({
       userId,
       templateId: data.templateId,
       // Titled after the application it is for, so a list of letters reads as
@@ -45,6 +52,12 @@ export class CoverLetterService {
       ...(data.companyAddress !== undefined && { companyAddress: data.companyAddress }),
       ...(data.closing !== undefined && { closing: data.closing }),
     });
+
+    if (data.applicationId) {
+      await this.applicationRepo.update(data.applicationId, userId, { coverLetterId: coverLetter.id });
+    }
+
+    return coverLetter;
   }
 
   async updateCoverLetter(

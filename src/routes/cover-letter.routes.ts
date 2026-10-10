@@ -8,6 +8,7 @@ const coverLetterController = new CoverLetterController();
 router.use(validateAccessToken);
 
 router.get("/", coverLetterController.getCoverLetters.bind(coverLetterController));
+router.post("/draft", coverLetterController.draftCoverLetter.bind(coverLetterController));
 router.get("/:id", coverLetterController.getCoverLetterById.bind(coverLetterController));
 router.post("/", coverLetterController.createCoverLetter.bind(coverLetterController));
 router.put("/:id", coverLetterController.updateCoverLetter.bind(coverLetterController));

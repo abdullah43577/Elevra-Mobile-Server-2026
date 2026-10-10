@@ -1,35 +1,19 @@
-import { createHash } from "node:crypto";
 import { z } from "zod";
 import { generateJson } from "../lib/ai";
 import { consumeAiQuota } from "../lib/ai-quota";
 import { assertPro, PRO_FEATURES } from "../lib/entitlements";
 import { BadRequestError, NotFoundError } from "../lib/errors";
-import {
-  computeCoverage,
-  containsTerm,
-  dedupeKeywords,
-  normalizeText,
-  numbersIn,
-  resumeText,
-  type JobKeyword,
-  type KeywordCoverage,
-} from "../lib/keyword-match";
+import { buildClaimGuard, computeCoverage, containsTerm, contentWords, groundedShare, normalizeText, resumeText, type JobKeyword, type KeywordCoverage } from "../lib/keyword-match";
+import { parseSections } from "../lib/resume-sections";
 import { CareerProfileRepository } from "../repositories/career-profile.repository";
 import { JobApplicationRepository } from "../repositories/job-application.repository";
 import { ResumeRepository } from "../repositories/resume/resume.repository";
 import { TemplateRepository } from "../repositories/resume/template.repository";
-import { resumeDataSchema, type ResumeDataInput } from "../schemas/resume-data";
+import type { ResumeDataInput } from "../schemas/resume-data";
+import { JobKeywordService, MAX_JOB_DESCRIPTION_CHARS } from "./job-keyword.service";
 
 const MIN_JOB_DESCRIPTION_CHARS = 150;
-const MAX_JOB_DESCRIPTION_CHARS = 12_000;
 const TITLE_MAX = 100;
-
-const KEYWORD_SYSTEM_PROMPT = `You read job postings the way an applicant tracking system and a recruiter screen them.
-Extract the 10-25 most important screening keywords: hard skills, tools, technologies, methodologies, certifications, domain knowledge and key qualifications.
-Write each in its shortest canonical form, phrased as the posting phrases it ("React", "SQL", "stakeholder management").
-Mark required true for must-haves and false for nice-to-haves.
-Exclude soft-skill cliches (team player, fast-paced), the company name, benefits and locations.
-Reply with JSON only: {"keywords": [{"term": string, "required": boolean}]}`;
 
 const TAILOR_SYSTEM_PROMPT = `You tailor a candidate's resume to one job posting. Breaking any rule below makes the output unusable.
 1. Only rephrase, reorder and emphasise what the resume already says. Never add employers, job titles, dates, degrees, certifications, tools, skills, responsibilities or results the resume does not contain.
@@ -42,15 +26,6 @@ const TAILOR_SYSTEM_PROMPT = `You tailor a candidate's resume to one job posting
 Reply with JSON only:
 {"summary": string, "experience": [{"index": number, "description": string, "achievements": string[]}], "skillOrder": string[], "projects": [{"index": number, "description": string}], "newTerms": [{"term": string, "evidence": string}]}
 Only include description or achievements for an entry when the resume has them. skillOrder lists the resume's existing skill names, most relevant first.`;
-
-const extractedKeywordsSchema = z.object({
-  keywords: z
-    .array(z.object({ term: z.string().trim().min(1).max(60), required: z.boolean() }))
-    .min(1)
-    .max(40),
-});
-
-const storedKeywordsSchema = z.array(z.object({ term: z.string(), required: z.boolean() }));
 
 const tailoredOutputSchema = z.object({
   summary: z.string().max(1500).optional(),
@@ -72,19 +47,6 @@ export interface TailorReport {
   keptOriginal: number;
 }
 
-const hashJobDescription = function (text: string) {
-  return createHash("sha256").update(text).digest("hex").slice(0, 16);
-};
-
-const parseSections = function (record: Record<string, unknown>): ResumeDataInput {
-  const sections = ["personalInfo", "experience", "education", "skills", "languages", "certifications", "projects", "references"] as const;
-  const input = Object.fromEntries(sections.map(key => [key, record[key] ?? undefined]));
-
-  const parsed = resumeDataSchema.safeParse(input);
-  if (!parsed.success) throw new BadRequestError("This resume has data that could not be read for tailoring");
-  return parsed.data;
-};
-
 // Prisma rejects a plain null for a Json column, so absent sections are omitted.
 const sectionsForWrite = function (data: ResumeDataInput) {
   return {
@@ -100,27 +62,13 @@ const sectionsForWrite = function (data: ResumeDataInput) {
 };
 
 const MIN_CONTENT_OVERLAP = 0.35;
-const STOPWORDS = new Set(["with", "that", "from", "this", "have", "using", "into", "over", "more", "than", "were", "been", "they", "their", "which", "also", "across", "while", "through", "within", "about", "when", "where"]);
-
-const contentWords = function (texts: string[]) {
-  return new Set(
-    normalizeText(texts.join(" "))
-      .split(" ")
-      .filter(word => word.length >= 4 && !STOPWORDS.has(word)),
-  );
-};
 
 // Catches a rewrite that drifted off its source — in testing, a model replaced a
 // role's description with that role's own title and dates, which passes every
-// other check.
+// other check. Measured as how much of the original survives into the rewrite.
 const preservesContent = function (candidate: string[], original: string[]) {
-  const words = contentWords(original);
-  if (words.size < 3) return true;
-
-  const kept = contentWords(candidate);
-  let shared = 0;
-  for (const word of words) if (kept.has(word)) shared++;
-  return shared / words.size >= MIN_CONTENT_OVERLAP;
+  if (contentWords(original).size < 3) return true;
+  return groundedShare(original, contentWords(candidate)) >= MIN_CONTENT_OVERLAP;
 };
 
 const sameText = function (a: string[] | undefined, b: string[] | undefined) {
@@ -143,22 +91,9 @@ const sameText = function (a: string[] | undefined, b: string[] | undefined) {
   asked to describe its own edits claimed keyword additions it had not made.
 */
 export const applyTailoring = function (base: ResumeDataInput, output: TailoredOutput, keywords: JobKeyword[]) {
-  const baseText = normalizeText(resumeText(base));
-
-  const addedTerms = (output.newTerms ?? []).filter(
-    entry => entry.term.trim() && entry.evidence.trim().length >= 2 && containsTerm(baseText, entry.evidence),
-  );
-  const allowed = new Set(addedTerms.map(entry => normalizeText(entry.term)));
-  const blocked = keywords.filter(keyword => !containsTerm(baseText, keyword.term) && !allowed.has(normalizeText(keyword.term)));
-
+  const guard = buildClaimGuard(resumeText(base), keywords, output.newTerms);
   const isSafe = function (texts: string[], source: string) {
-    const sourceNumbers = numbersIn(source);
-    return texts.every(text => {
-      const normalized = normalizeText(text);
-      const inventsNumber = [...numbersIn(text)].some(number => !sourceNumbers.has(number));
-      const usesBlockedTerm = blocked.some(keyword => containsTerm(normalized, keyword.term));
-      return !inventsNumber && !usesBlockedTerm;
-    });
+    return texts.every(text => guard.isSupported(text, source));
   };
 
   let keptOriginal = 0;
@@ -244,7 +179,7 @@ export const applyTailoring = function (base: ResumeDataInput, output: TailoredO
     data: result,
     changes,
     keptOriginal,
-    addedTerms: addedTerms.filter(entry => containsTerm(finalText, entry.term)),
+    addedTerms: guard.addedTerms.filter(entry => containsTerm(finalText, entry.term)),
   };
 };
 
@@ -253,6 +188,7 @@ export class ResumeTailorService {
   private resumeRepo = new ResumeRepository();
   private careerProfileRepo = new CareerProfileRepository();
   private templateRepo = new TemplateRepository();
+  private keywordService = new JobKeywordService();
 
   async tailorResume(applicationId: string, userId: string, baseResumeId?: string) {
     await assertPro(userId, PRO_FEATURES.AI_RESUME_TAILOR);
@@ -270,7 +206,7 @@ export class ResumeTailorService {
     // One quota unit per tailoring, though it can take two model calls.
     await consumeAiQuota(userId);
 
-    const keywords = await this.ensureKeywords(application, jobDescription, userId);
+    const keywords = await this.keywordService.ensure(application, userId);
     const before = computeCoverage(keywords, base.data);
 
     const { result } = await generateJson({
@@ -338,42 +274,13 @@ export class ResumeTailorService {
     const application = await this.applicationRepo.findById(applicationId, userId);
     if (!application) throw new NotFoundError("Application not found");
 
-    const keywords = this.cachedKeywords(application);
+    const keywords = this.keywordService.getCurrent(application);
     if (!application.resumeId || !keywords) return null;
 
     const resume = await this.resumeRepo.findById(application.resumeId, userId);
     if (!resume) return null;
 
     return { resumeId: resume.id, coverage: computeCoverage(keywords, parseSections(resume)) };
-  }
-
-  private cachedKeywords(application: { jobDescription: string | null; jobKeywords: unknown; jobKeywordsHash: string | null }) {
-    const jobDescription = application.jobDescription?.trim();
-    if (!jobDescription || application.jobKeywordsHash !== hashJobDescription(jobDescription)) return null;
-
-    const parsed = storedKeywordsSchema.safeParse(application.jobKeywords);
-    return parsed.success && parsed.data.length ? parsed.data : null;
-  }
-
-  private async ensureKeywords(
-    application: { id: string; jobDescription: string | null; jobKeywords: unknown; jobKeywordsHash: string | null },
-    jobDescription: string,
-    userId: string,
-  ) {
-    const cached = this.cachedKeywords(application);
-    if (cached) return cached;
-
-    const { result } = await generateJson({
-      system: KEYWORD_SYSTEM_PROMPT,
-      prompt: jobDescription.slice(0, MAX_JOB_DESCRIPTION_CHARS),
-      schema: extractedKeywordsSchema,
-      temperature: 0.1,
-      reasoningEffort: "low",
-    });
-
-    const keywords = dedupeKeywords(result.keywords);
-    await this.applicationRepo.updateJobKeywords(application.id, userId, keywords.map(keyword => ({ ...keyword })), hashJobDescription(jobDescription));
-    return keywords;
   }
 
   private async resolveBase(userId: string, baseResumeId?: string) {

@@ -17,6 +17,8 @@ export const createCoverLetterSchema = z.object({
   companyAddress: z.string().max(300).optional(),
   body: z.string().min(1),
   closing: z.string().max(60).optional(),
+  // Written from an application: the new letter is attached to it in the same request.
+  applicationId: z.string().min(1).optional(),
 });
 
 /*
@@ -29,7 +31,7 @@ export const createCoverLetterSchema = z.object({
   exist yet, and accepting null there would only widen what the service has to
   reason about.
 */
-export const updateCoverLetterSchema = createCoverLetterSchema.partial().extend({
+export const updateCoverLetterSchema = createCoverLetterSchema.omit({ applicationId: true }).partial().extend({
   recipientName: z.string().max(120).nullable().optional(),
   recipientTitle: z.string().max(120).nullable().optional(),
   companyAddress: z.string().max(300).nullable().optional(),
@@ -37,3 +39,12 @@ export const updateCoverLetterSchema = createCoverLetterSchema.partial().extend(
 });
 
 export type CreateCoverLetterInput = z.infer<typeof createCoverLetterSchema>;
+
+export const draftCoverLetterSchema = z.object({
+  company: z.string().trim().min(1).max(120),
+  role: z.string().trim().min(1).max(120),
+  recipientName: z.string().trim().max(120).optional(),
+  applicationId: z.string().min(1).optional(),
+});
+
+export type DraftCoverLetterInput = z.infer<typeof draftCoverLetterSchema>;

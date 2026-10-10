@@ -1,7 +1,8 @@
 import { type Response } from "express";
 import type { IUserRequest } from "../interface";
 import { handleErrors } from "../lib/handle-errors";
-import { createCoverLetterSchema, updateCoverLetterSchema } from "../schemas/cover-letter";
+import { createCoverLetterSchema, draftCoverLetterSchema, updateCoverLetterSchema } from "../schemas/cover-letter";
+import { CoverLetterDraftService } from "../services/cover-letter-draft.service";
 import { CoverLetterService } from "../services/cover-letter.service";
 import { z } from "zod";
 
@@ -9,6 +10,19 @@ const listQuerySchema = z.object({ search: z.string().optional() });
 
 export class CoverLetterController {
   private coverLetterService = new CoverLetterService();
+  private draftService = new CoverLetterDraftService();
+
+  async draftCoverLetter(req: IUserRequest, res: Response) {
+    try {
+      const { userId } = req;
+      const input = draftCoverLetterSchema.parse(req.body);
+
+      const draft = await this.draftService.draft(userId!, input);
+      res.status(200).json({ message: "Cover letter drafted", data: draft });
+    } catch (error) {
+      handleErrors({ res, error });
+    }
+  }
 
   async getCoverLetters(req: IUserRequest, res: Response) {
     try {
