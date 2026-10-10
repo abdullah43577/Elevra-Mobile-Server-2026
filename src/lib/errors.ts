@@ -75,3 +75,17 @@ export class AiQuotaExceededError extends AppError {
     super(message, 429, "AI_QUOTA_EXCEEDED");
   }
 }
+
+// The PDF has no text layer — almost always a scan or a photo. 422: the file
+// arrived fine, there is just nothing in it to read.
+export class PdfNoTextError extends AppError {
+  constructor(message = "This PDF looks like a scan, so there's no text to read. Fill your profile in by hand instead.") {
+    super(message, 422, "PDF_NO_TEXT");
+  }
+}
+
+export class PdfUnreadableError extends AppError {
+  constructor(message = "That file couldn't be opened as a PDF. Try exporting your resume to PDF again.") {
+    super(message, 422, "PDF_UNREADABLE");
+  }
+}

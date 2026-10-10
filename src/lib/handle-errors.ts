@@ -29,8 +29,13 @@ export const handleErrors = function ({ res, error }: IHandleErrors) {
     return res.status(400).json({ message: "Validation error", errors });
   }
 
+  // A bad upload is the client's to fix, never a 500.
   if (error instanceof multer.MulterError) {
-    return res.status(500).json({ message: error.message, error: "Multer Error" });
+    const tooLarge = error.code === "LIMIT_FILE_SIZE";
+    return res.status(tooLarge ? 413 : 400).json({
+      message: tooLarge ? "That file is too large." : error.message,
+      ...(tooLarge && { code: "FILE_TOO_LARGE" }),
+    });
   }
 
   // Prisma: unique constraint violation (e.g. duplicate email)
