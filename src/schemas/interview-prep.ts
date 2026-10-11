@@ -35,20 +35,12 @@ export const createQuestionSchema = z.object({
 
 export const updateQuestionSchema = createQuestionSchema.partial();
 
-/*
-  `text` is nullable, not just optional: clearing a written answer has to be
-  distinguishable from not touching it, and JSON.stringify drops undefined keys.
-*/
+// Nullable, not just optional: clearing needs null because JSON drops undefined keys.
 export const saveAnswerSchema = z.object({
   text: z.string().nullable().optional(),
   status: statusSchema.optional(),
 });
 
-/*
-  A whole practice run reports once, at the end. Per-question requests would mean
-  a session that half records itself on a bad connection — and rehearsing is
-  exactly the moment someone is somewhere with poor signal.
-*/
 export const recordPracticeSchema = z.object({
   questionIds: z.array(z.string()).min(1).max(100),
 });

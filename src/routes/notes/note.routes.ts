@@ -5,7 +5,6 @@ import { validateAccessToken } from "../../lib/validate-token";
 const router = Router();
 const noteController = new NoteController();
 
-// All note routes require authentication
 router.use(validateAccessToken);
 
 router.get("/", noteController.getNotes.bind(noteController));

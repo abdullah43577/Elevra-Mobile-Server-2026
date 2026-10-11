@@ -1,13 +1,6 @@
 import { LayoutKey } from "../src/generated/prisma/enums";
 import { prisma } from "../src/lib/prisma";
 
-/*
-  Idempotent. Upserts the ATS template catalogue and retires the original four.
-  Run with:  npx tsx prisma/seed-ats-templates.ts
-*/
-
-// Realistic sample content — templates are judged on how they look full, and
-// lorem-ipsum previews make every layout look the same.
 const SAMPLE = {
   personalInfo: {
     firstName: "Amara",
@@ -192,8 +185,7 @@ async function main() {
     console.log(`  ✓ ${item.name} (${item.layoutKey})`);
   }
 
-  // Retire the originals rather than deleting them — existing Resume rows still
-  // point at these templates.
+  // Retire rather than delete: existing Resume rows still point at these.
   const retired = await prisma.template.updateMany({
     where: { layoutKey: { in: ["PROFESSIONAL_CLASSIC", "PROFESSIONAL_SLEEK", "CREATIVE_SPLIT", "MINIMAL_COMPACT", "EXECUTIVE_FORMAL"] } },
     data: { isActive: false },

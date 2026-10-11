@@ -12,7 +12,6 @@ interface IHandleErrors {
 }
 
 export const handleErrors = function ({ res, error }: IHandleErrors) {
-  // JWT Errors
   if (error instanceof jwt.JsonWebTokenError) {
     return res.status(401).json({ message: "Invalid token!" });
   }
@@ -20,7 +19,6 @@ export const handleErrors = function ({ res, error }: IHandleErrors) {
     return res.status(401).json({ message: "Token has expired!" });
   }
 
-  // Zod Validation Error (Refined)
   if (error instanceof ZodError) {
     const errors = error.issues.map(err => ({
       field: err.path.join("."),
@@ -29,7 +27,6 @@ export const handleErrors = function ({ res, error }: IHandleErrors) {
     return res.status(400).json({ message: "Validation error", errors });
   }
 
-  // A bad upload is the client's to fix, never a 500.
   if (error instanceof multer.MulterError) {
     const tooLarge = error.code === "LIMIT_FILE_SIZE";
     return res.status(tooLarge ? 413 : 400).json({
@@ -38,7 +35,6 @@ export const handleErrors = function ({ res, error }: IHandleErrors) {
     });
   }
 
-  // Prisma: unique constraint violation (e.g. duplicate email)
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
     const field = (error.meta?.target as string[] | undefined)?.[0] ?? "field";
     return res.status(409).json({
@@ -47,22 +43,18 @@ export const handleErrors = function ({ res, error }: IHandleErrors) {
     });
   }
 
-  // Prisma: record not found (e.g. update/delete on non-existent row)
   if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
     return res.status(404).json({ message: "Record not found" });
   }
 
-  // Prisma: invalid data / type mismatch
   if (error instanceof Prisma.PrismaClientValidationError) {
     return res.status(400).json({ message: "Invalid data format", error: error.message });
   }
 
-  // Typed app errors (NotFoundError, ForbiddenError, BadRequestError, etc.)
   if (error instanceof AppError) {
     return res.status(error.statusCode).json({ message: error.message, ...(error.code && { code: error.code }) });
   }
 
-  // Generic/Unknown Error
   console.error("Unhandled error:", error);
   return res.status(500).json({
     message: typeof error === "string" ? error : "Internal Server Error",

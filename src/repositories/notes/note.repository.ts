@@ -10,10 +10,6 @@ const noteInclude = {
   },
 } satisfies Prisma.NoteInclude;
 
-// export type NoteWithRelations = Prisma.NoteGetPayload<{
-//   include: typeof noteInclude;
-// }>;
-
 export class NoteRepository {
   async findManyByUser(
     userId: string,

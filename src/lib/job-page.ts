@@ -10,9 +10,6 @@ const decodeEntities = function (text: string) {
   });
 };
 
-// Readable text from HTML, keeping the line structure a posting relies on —
-// paragraphs, headings and bullet points — and dropping everything that is not
-// content.
 export const htmlToText = function (html: string) {
   const text = html
     .replace(/<(script|style|noscript|svg|head|template|iframe)\b[\s\S]*?<\/\1>/gi, " ")
@@ -89,11 +86,6 @@ const salaryOf = function (posting: Record<string, unknown>) {
   };
 };
 
-/*
-  schema.org JobPosting data, which Greenhouse, Lever, Ashby, Workable and most
-  careers sites embed for search engines. When it is there the import needs no
-  model call at all: the fields are the site's own, so nothing can be invented.
-*/
 export const extractStructuredJob = function (html: string): StructuredJob | null {
   const blocks = html.matchAll(/<script\b[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
 
@@ -119,7 +111,6 @@ export const extractStructuredJob = function (html: string): StructuredJob | nul
       ...(location && { location }),
       ...(asArray(posting.jobLocationType as string | string[] | undefined).includes("TELECOMMUTE") && { remote: true }),
       ...salaryOf(posting),
-      // The description is itself HTML inside the JSON.
       ...(description && { description: htmlToText(description) }),
     };
   }

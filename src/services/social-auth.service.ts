@@ -15,13 +15,8 @@ export class SocialAuthService {
   async signIn(provider: SocialProvider, data: SocialAuthValues) {
     const identity = await verifySocialToken(provider, data.idToken);
 
-    /*
-      An unverified address must never be allowed to match an existing account,
-      because matching by email is how a social identity gets attached to one.
-      Rejecting outright rather than falling back to provider-id-only matching:
-      an account whose address the provider will not vouch for is not an account
-      we want to create either.
-    */
+    // An unverified address must never match an existing account: matching by email is how a
+    // social identity gets attached to one.
     if (identity.email && !identity.emailVerified) {
       throw new UnauthorizedError("That account's email address is not verified with its provider.");
     }
@@ -43,12 +38,7 @@ export class SocialAuthService {
     const byProvider = await this.userRepo.findByProviderId(provider, identity.providerId);
     if (byProvider) return byProvider;
 
-    /*
-      Falling back to the email is what stops someone who signed up with a
-      password from ending up with a second, empty account the first time they
-      tap the Google button. It is only safe because the provider asserts the
-      address is verified — which is checked before this runs.
-    */
+    // The email fallback is only safe because the provider has already vouched the address is verified.
     return identity.email ? this.userRepo.findByEmail(identity.email) : null;
   }
 
@@ -67,8 +57,6 @@ export class SocialAuthService {
       ...(first_name && { first_name }),
       ...(last_name && { last_name }),
       ...(identity.profile_pic && { profile_pic: identity.profile_pic }),
-      // The provider already proved the address. Sending our own OTP would ask
-      // the user to verify something Google or Apple just verified.
       has_validated_email: true,
       has_onboarded: true,
       ...(data.deviceToken && { deviceToken: data.deviceToken }),
@@ -77,8 +65,6 @@ export class SocialAuthService {
 
     const user = await this.userRepo.createSocialUser(createData);
 
-    // Mirrors what verifyEmail does for a password signup: that is the moment a
-    // password account becomes real, and this is the equivalent moment here.
     await this.mailService.sendWelcome(user.email, {
       name: user.first_name ?? user.last_name ?? "User",
     });
@@ -100,18 +86,8 @@ export class SocialAuthService {
 
     const alreadyLinked = provider === "GOOGLE" ? user.googleId === identity.providerId : user.appleId === identity.providerId;
 
-    /*
-      Pre-registration account takeover, and the reason this branch exists.
-
-      Anyone can sign up with a password against an address they do not own —
-      the account just sits unverified, and login() refuses it. But linking a
-      social identity to it sets has_validated_email, which would bring that
-      attacker-chosen password to life against the real owner's account.
-
-      The provider owns the address; an unverified signup does not. So the
-      password is destroyed on the way in. The genuine user can set a new one
-      through the ordinary reset flow, which now requires the inbox they hold.
-    */
+    // Pre-registration takeover: an unverified password signup on this address may be an attacker's,
+    // so linking destroys the password; the real owner can reset it through their inbox.
     const stealPassword = !alreadyLinked && !user.has_validated_email && !!user.password;
 
     const first_name = identity.first_name ?? data.first_name ?? null;
@@ -124,8 +100,7 @@ export class SocialAuthService {
       failedLoginAttempts: 0,
       isLocked: false,
       ...(stealPassword && { password: null }),
-      // Only fills gaps. A user who renamed themselves in Profile must not have
-      // it overwritten by their Google display name on every sign-in.
+      // Only fills gaps, so a name changed in Profile is not overwritten on every sign-in.
       ...(!user.first_name && first_name && { first_name }),
       ...(!user.last_name && last_name && { last_name }),
       ...(!user.profile_pic && identity.profile_pic && { profile_pic: identity.profile_pic }),

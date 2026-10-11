@@ -1,12 +1,6 @@
 import { prisma } from "../src/lib/prisma";
 
-/*
-  Restored from the commented-out block that sat in seed.ts. Idempotent by
-  design: upsert on the unique name, so a redeploy re-running it is a no-op
-  rather than a duplicate.
-*/
 const PROFESSIONS: { name: string; category?: string }[] = [
-  // Tech
   { name: "Software Engineering", category: "Tech" },
   { name: "Frontend Development", category: "Tech" },
   { name: "Backend Development", category: "Tech" },
@@ -27,7 +21,6 @@ const PROFESSIONS: { name: string; category?: string }[] = [
   { name: "Technical Support", category: "Tech" },
   { name: "IT Administration", category: "Tech" },
 
-  // Business
   { name: "Marketing", category: "Business" },
   { name: "Sales", category: "Business" },
   { name: "Business Development", category: "Business" },
@@ -44,7 +37,6 @@ const PROFESSIONS: { name: string; category?: string }[] = [
   { name: "Supply Chain", category: "Business" },
   { name: "Consulting", category: "Business" },
 
-  // Healthcare
   { name: "Medicine", category: "Healthcare" },
   { name: "Nursing", category: "Healthcare" },
   { name: "Pharmacy", category: "Healthcare" },
@@ -52,12 +44,10 @@ const PROFESSIONS: { name: string; category?: string }[] = [
   { name: "Public Health", category: "Healthcare" },
   { name: "Medical Laboratory", category: "Healthcare" },
 
-  // Education
   { name: "Teaching", category: "Education" },
   { name: "Research", category: "Education" },
   { name: "Academic Administration", category: "Education" },
 
-  // Creative
   { name: "Content Writing", category: "Creative" },
   { name: "Copywriting", category: "Creative" },
   { name: "Photography", category: "Creative" },
@@ -65,18 +55,15 @@ const PROFESSIONS: { name: string; category?: string }[] = [
   { name: "Animation", category: "Creative" },
   { name: "Music", category: "Creative" },
 
-  // Trades
   { name: "Construction", category: "Trades" },
   { name: "Electrical", category: "Trades" },
   { name: "Plumbing", category: "Trades" },
   { name: "Mechanical Engineering", category: "Trades" },
 
-  // Public Service
   { name: "Government", category: "Public Service" },
   { name: "Non-Profit", category: "Public Service" },
   { name: "Law Enforcement", category: "Public Service" },
 
-  // Miscellaneous
   { name: "Hospitality", category: "Hospitality" },
   { name: "Real Estate", category: "Business" },
   { name: "Agriculture", category: "Agriculture" },

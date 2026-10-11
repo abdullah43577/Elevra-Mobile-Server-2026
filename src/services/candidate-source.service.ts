@@ -22,12 +22,6 @@ const tryParseSections = function (record: Record<string, unknown>) {
   }
 };
 
-/*
-  Which of the user's material an AI feature writes from, shared by every
-  feature that does: the resume attached to the application says most about how
-  the candidate pitched this role, so it wins; then the career profile; then the
-  most recently updated resume. Only a source with work experience counts.
-*/
 export class CandidateSourceService {
   private resumeRepo = new ResumeRepository();
   private careerProfileRepo = new CareerProfileRepository();

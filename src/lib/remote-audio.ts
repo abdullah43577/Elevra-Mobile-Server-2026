@@ -10,11 +10,7 @@ export class AudioTooLongError extends AppError {
   }
 }
 
-/*
-  Downloads a recording this app stored, for transcription. The url comes from
-  our own database, but it is still fetched server-side, so it is held to the
-  one host uploads go to rather than trusted to point anywhere.
-*/
+// Fetched server-side, so held to the upload host even though the url comes from our own database.
 export const fetchStoredAudio = async function (url: string) {
   let parsed: URL;
   try {

@@ -30,7 +30,6 @@ const server = app.listen(PORT, async () => {
   }
 });
 
-// Graceful shutdown
 process.on("SIGTERM", async () => {
   console.log("🛑 SIGTERM received, shutting down gracefully");
   server.close(() => {

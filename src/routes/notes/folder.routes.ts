@@ -5,7 +5,6 @@ import { validateAccessToken } from "../../lib/validate-token";
 const router = Router();
 const folderController = new FolderController();
 
-// All folder routes require authentication
 router.use(validateAccessToken);
 
 router.get("/", folderController.getFolders.bind(folderController));

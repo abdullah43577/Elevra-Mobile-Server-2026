@@ -65,10 +65,7 @@ const PROFICIENCY = ["basic", "conversational", "professional", "native"] as con
 const EMAIL = z.email();
 
 export interface ImportReport {
-  // Values dropped because they could not be found in the PDF.
   omittedValues: number;
-  // Experience and education entries that arrived without a start date, which
-  // the editor requires before it will save.
   entriesMissingDates: number;
 }
 
@@ -76,13 +73,8 @@ const isPdf = function (buffer: Buffer) {
   return buffer.subarray(0, 5).toString("latin1") === "%PDF-";
 };
 
-/*
-  Every imported value must come from the user's own document. The model is
-  told to copy verbatim, and this checks it did: a value whose numbers are not
-  in the PDF, or whose words mostly are not, is dropped and counted. Dates are
-  exempt from the number check — "Mar 2022" correctly becomes "2022-03", and
-  "03" appears nowhere in the PDF — and pass when their year is in it.
-*/
+// Dates are exempt from the number check ("Mar 2022" becomes "2022-03", and "03" is not in
+// the PDF); they pass when their year is in it.
 const buildGrounding = function (pdfText: string) {
   const pdfNumbers = numbersIn(pdfText);
   const pdfWords = contentWords([pdfText]);
@@ -244,14 +236,6 @@ const toProfile = function (extracted: Extracted, pdfText: string) {
 };
 
 export class ResumeImportService {
-  /*
-    Free, deliberately (client CLAUDE.md §31, decision 5): typing a career
-    history on a phone is where new users quit, and every paid feature improves
-    once the profile is full. It still counts against the daily AI quota.
-
-    Returns the profile for the user to review; it is never saved here. The PDF
-    itself is never stored.
-  */
   async importFromPdf(userId: string, file: Buffer): Promise<{ profile: ResumeDataInput; report: ImportReport }> {
     if (!isPdf(file)) throw new PdfUnreadableError();
 

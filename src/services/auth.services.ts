@@ -21,27 +21,11 @@ export class AuthService {
   private voiceRecordingRepo = new VoiceRecordingRepository();
   private static generateOTP = () => crypto.randomInt(100000, 1000000).toString();
 
-  /*
-    Cooldown between verification emails for one account. Matches the resend
-    button's own countdown on the client, so the two never disagree about when
-    another code is available.
-  */
+  // Matches the client's resend countdown so the two never disagree.
   private static readonly VERIFY_OTP_COOLDOWN_SECONDS = 60;
 
-  /*
-    The one place a verification code is minted and mailed. register(),
-    resendVerificationOtp() and login() all go through it — it existed as three
-    copies before login() needed a fourth.
-
-    `throttle` is only set on the login path. That send is a side effect of an
-    action the user took for a different reason, so tapping Sign in a few times
-    must not put a few more codes in their inbox; the explicit Resend button is
-    where "send me another one right now" lives, and it is rate limited at the
-    route.
-
-    Returns whether a mail actually went out, so the caller can tell the user
-    which of the two happened.
-  */
+  // `throttle` is set only on the login path: tapping Sign in repeatedly must not stack codes,
+  // and the explicit Resend route is rate limited instead.
   private async issueVerificationOtp(user: { id: string; email: string; first_name: string | null; last_name: string | null }, options?: { throttle?: boolean }) {
     if (options?.throttle) {
       const cooldownKey = `email-verify-cooldown:${user.id}`;
@@ -144,11 +128,8 @@ export class AuthService {
 
       if (!user) throw new BadRequestError("Invalid credentials");
 
-      /*
-        Gated on the *absence of a password*, not on the presence of a googleId.
-        A password account that later links Google has both, and the old check
-        locked it out of the credentials it was created with.
-      */
+      // Gated on the absence of a password, not the presence of a googleId: a password account
+      // that later links Google has both.
       if (!user.password) {
         throw new BadRequestError(user.appleId && !user.googleId ? "Please sign in with Apple" : "Please sign in with Google");
       }
@@ -163,21 +144,8 @@ export class AuthService {
 
       await this.userRepo.resetLoginAttempts(user.id);
 
-      /*
-        Checked *after* the password, not before, and that ordering is the whole
-        safety of the send below.
-
-        This used to be the first thing login() looked at, so anyone who knew
-        the address of an account that had signed up but never verified could
-        put mail in that inbox by posting rubbish at this endpoint. A code now
-        only goes to someone who has already proved they hold the credentials,
-        and a wrong password is still answered with a flat "Invalid
-        credentials" that reveals nothing about the account's state.
-
-        Throttled, so repeatedly tapping Sign in does not stack up codes. Either
-        way the client gets EMAIL_NOT_VERIFIED and sends the user to the OTP
-        screen — a code is waiting for them regardless of which branch ran.
-      */
+      // Checked only after the password, so only someone holding the credentials can trigger this
+      // mail; a wrong password still gets a flat "Invalid credentials".
       if (!user.has_validated_email) {
         const sent = await this.issueVerificationOtp(user, { throttle: true });
 
@@ -208,14 +176,7 @@ export class AuthService {
     }
   }
 
-  /*
-    Always reports success, even for an address with no account.
-
-    Returning 404 here let anyone test an email and learn whether it is
-    registered — account enumeration, and a ready-made target list for
-    credential stuffing. The caller cannot tell the difference; only someone
-    with access to the inbox learns anything.
-  */
+  // Always reports success, even for an unknown address, so it cannot be used to enumerate accounts.
   async forgotPassword(email: string) {
     try {
       const user = await this.userRepo.findByEmail(email);
@@ -238,17 +199,7 @@ export class AuthService {
     }
   }
 
-  /*
-    Consumes the OTP that forgotPassword writes to `password-reset:{userId}`.
-
-    That key was being created and emailed but never read — there was no route
-    to consume it, so anyone who forgot their password was permanently locked
-    out after the app told them to check their inbox.
-
-    Deliberately does NOT reveal whether the email exists: an unknown address
-    and a wrong code return the same error, so this cannot be used to enumerate
-    accounts.
-  */
+  // An unknown address and a wrong code return the same error, so this cannot enumerate accounts.
   async resetPassword(email: string, otp: string, newPassword: string) {
     try {
       const user = await this.userRepo.findByEmail(email);
@@ -276,7 +227,6 @@ export class AuthService {
       const hashedPassword = await hashPassword(newPassword);
       await this.userRepo.updateUser(user.id, {
         password: hashedPassword,
-        // A successful reset proves ownership, so clear any login lockout.
         failedLoginAttempts: 0,
         isLocked: false,
       });
@@ -307,7 +257,6 @@ export class AuthService {
 
       if (!isMatch) throw new BadRequestError("Password Invalid");
 
-      //# hash password
       const hashedPassword = await hashPassword(newPassword);
 
       await this.userRepo.updateUser(userId, { password: hashedPassword });
@@ -322,17 +271,7 @@ export class AuthService {
     }
   }
 
-  /*
-    Deleting the account is a right, not a request, so this is a hard delete of
-    the row rather than a status flag. Every owned model declares
-    `onDelete: Cascade` on its userId, which is what makes one delete enough —
-    notes, resumes, applications, letters, answers, settings and notifications
-    all go with it.
-
-    The password check is the safeguard: an unlocked phone in the wrong hands
-    should not be able to erase someone's work in two taps. Accounts with no
-    password (a future OAuth provider) skip it, since there is nothing to check.
-  */
+  // Hard delete: every owned model cascades on userId, so this one delete removes everything.
   async deleteAccount(userId: string, password?: string) {
     try {
       const user = await this.userRepo.findUniqueUser({ id: userId }, { id: true, password: true });
@@ -346,16 +285,7 @@ export class AuthService {
         if (!isMatch) throw new BadRequestError("Password Invalid");
       }
 
-      /*
-        Uploaded audio is destroyed before the rows go, because the publicIds
-        live on those rows and are unrecoverable afterwards. Deleting the record
-        of someone's voice memos while leaving the files hosted would defeat the
-        point of the feature.
-
-        Two gaps, both structural: profile pictures and interview answer audio
-        store a URL but no publicId, so they cannot be destroyed by handle. Add
-        a publicId column to either and they can join this.
-      */
+      // Destroyed before the rows go: the publicIds live on those rows and are lost afterwards.
       const publicIds = await this.voiceRecordingRepo.findPublicIdsByUser(userId);
       if (publicIds.length) {
         await this.cloudinaryService.destroyMany(publicIds, "auto");

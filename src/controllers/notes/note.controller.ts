@@ -55,7 +55,6 @@ export class NoteController {
       const { userId } = req;
       const { title, content, folderId, tagNames } = createNoteSchema.parse(req.body);
 
-      // Build the data object with conditional spreading
       const noteData: {
         userId: string;
         title: string;
@@ -84,7 +83,6 @@ export class NoteController {
       const { id } = req.params;
       const { title, content, folderId, isArchived, isPinned } = updateNoteSchema.parse(req.body);
 
-      // Build the data object with conditional spreading
       const updateData: {
         title?: string;
         content?: string;
@@ -93,9 +91,7 @@ export class NoteController {
         isPinned?: boolean;
       } = {
         ...(title && { title }),
-        // For content, use !== undefined so we can set it to null/empty
         ...(content !== undefined && { content }),
-        // For folderId, use !== undefined so we can set it to null
         ...(folderId !== undefined && { folderId }),
         ...(isArchived !== undefined && { isArchived }),
         ...(isPinned !== undefined && { isPinned }),
@@ -149,13 +145,8 @@ export class NoteController {
     const { userId } = req;
     const { id } = req.params;
 
-    /*
-      Checked before the SSEHelper exists. Its constructor flushes the
-      event-stream headers immediately, after which the status code is fixed —
-      a free user would get "200 OK" carrying an error event instead of a 402,
-      and an exhausted quota a 200 instead of a 429. NoteService.streamSummary
-      checks again; that one is the boundary, this one keeps the status honest.
-    */
+    // Checked before SSEHelper flushes the headers, so a refusal keeps its real status
+    // instead of a 200 carrying an error event.
     try {
       await this.noteService.assertCanSummarize(userId!);
     } catch (error) {
@@ -166,14 +157,11 @@ export class NoteController {
     let isStreaming = true;
 
     try {
-
-      // Handle client disconnect
       sse.onDisconnect(() => {
         isStreaming = false;
         console.log("Client disconnected from summary stream");
       });
 
-      // Get the note
       const note = await this.noteService.getNoteById(id as string, userId!);
 
       if (!note.content) {
@@ -190,15 +178,13 @@ export class NoteController {
 
       let streamed = "";
 
-      // Keeps going after a disconnect on purpose: the summary is still saved
-      // and the notification below tells the user it is ready.
+      // Keeps going after a disconnect on purpose: the summary is saved and the user notified.
       const fullSummary = await this.noteService.streamSummary(userId!, plainText, (chunk: string) => {
         if (!isStreaming) return;
         streamed += chunk;
         sse.sendChunk(chunk, streamed);
       });
 
-      // Save the full summary to the database
       await this.noteService.saveSummary(id as string, userId!, fullSummary);
 
       await this.notificationService.notify({
@@ -210,7 +196,6 @@ export class NoteController {
         entityId: id as string,
       });
 
-      // Send completion signal
       sse.sendComplete(fullSummary);
       sse.close();
     } catch (error: any) {

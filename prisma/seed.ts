@@ -3,7 +3,6 @@ import { LayoutKey } from "../src/generated/prisma/enums";
 import { prisma } from "../src/lib/prisma";
 
 async function seedTemplates() {
-  // 1. First create the themes
   const themes = await Promise.all([
     prisma.resumeTheme.create({
       data: {
@@ -62,7 +61,6 @@ async function seedTemplates() {
     }),
   ]);
 
-  // 2. Then create templates with references to themes
   const templates = [
     {
       name: "Modern Professional",

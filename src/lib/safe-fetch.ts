@@ -10,27 +10,20 @@ const MAX_BYTES = 3 * 1024 * 1024;
 const MAX_REDIRECTS = 5;
 const USER_AGENT = "Mozilla/5.0 (compatible; Elevra/1.0; job posting import)";
 
-// The link itself is unusable: not http(s), a non-standard port, credentials,
-// or an address that is not on the public internet.
 export class InvalidLinkError extends AppError {
   constructor(message = "That link can't be imported. Use the address of a public job posting.") {
     super(message, 400, "INVALID_LINK");
   }
 }
 
-// The page exists but could not be read: blocked, behind a login, not HTML.
 export class FetchBlockedError extends AppError {
   constructor(message = "We couldn't read that page. Paste the posting text instead.") {
     super(message, 422, "FETCH_BLOCKED");
   }
 }
 
-/*
-  Everything that is not the public internet. Checked against the address the
-  socket is about to connect to — not against the url — so a public hostname
-  that resolves to an internal address is refused too, and a DNS answer that
-  changes between a check and the connect (rebinding) cannot slip past.
-*/
+// Checked against the address the socket connects to, not the url, so a hostname that
+// resolves internally, or DNS rebinding between check and connect, cannot slip past.
 const PRIVATE = new BlockList();
 for (const [network, prefix] of [
   ["0.0.0.0", 8], ["10.0.0.0", 8], ["100.64.0.0", 10], ["127.0.0.0", 8], ["169.254.0.0", 16], ["172.16.0.0", 12],
@@ -39,16 +32,14 @@ for (const [network, prefix] of [
 ] as const) {
   PRIVATE.addSubnet(network, prefix, "ipv4");
 }
-// No ::ffff:0:0/96 rule: BlockList checks every IPv4 address against IPv6
-// rules in its mapped form, so that one rule blocks the whole IPv4 internet.
-// Mapped addresses are unwrapped and checked as IPv4 instead.
+// No ::ffff:0:0/96 rule: BlockList matches IPv4 against IPv6 rules in mapped form, so it would
+// block all of IPv4. Mapped addresses are unwrapped and checked as IPv4 instead.
 for (const [network, prefix] of [
   ["::", 127], ["fc00::", 7], ["fe80::", 10], ["ff00::", 8], ["2001:db8::", 32], ["64:ff9b::", 96],
 ] as const) {
   PRIVATE.addSubnet(network, prefix, "ipv6");
 }
 
-// "::ffff:127.0.0.1", or the "::ffff:7f00:1" a URL normalises it to.
 const mappedIPv4 = function (address: string) {
   const match = address.toLowerCase().match(/^::ffff:(.+)$/);
   if (!match?.[1]) return null;
@@ -157,13 +148,7 @@ const requestOnce = function (url: URL) {
   });
 };
 
-/*
-  Fetches a public web page for import, refusing anything that would let a user
-  aim the server at its own network: private and reserved addresses (checked at
-  connect time, on every redirect hop), non-http schemes, other ports, and
-  credentials in the url. Redirects are followed by hand so each hop is
-  re-validated. Size and time are capped.
-*/
+// Redirects are followed by hand so every hop is re-validated against the private-address rules.
 export const fetchPublicPage = async function (rawUrl: string) {
   let url = validateUrl(rawUrl);
 

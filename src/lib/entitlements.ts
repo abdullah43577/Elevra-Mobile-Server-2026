@@ -2,20 +2,6 @@ import type { SubscriptionTier } from "../generated/prisma/client";
 import { PaymentRequiredError } from "./errors";
 import { prisma } from "./prisma";
 
-/*
-  What Pro actually buys. Kept in one place so the answer to "is this paid?" is
-  never spread across call sites.
-
-  The principle: users pay for what costs us money — AI inference. Building
-  and exporting are free: capping notes, recordings, applications or resumes
-  makes the app feel broken rather than limited, and charging to download your
-  own file reads as a hostage fee when every free editor does it. New users try
-  Pro through the store's free trial, not through a counter here.
-
-  Templates are deliberately NOT gated. The catalogue was built around ATS
-  quality; charging for some of it means knowingly handing free users a worse
-  resume.
-*/
 export const PRO_FEATURES = {
   AI_NOTE_SUMMARY: "ai_note_summary",
   AI_RESUME_TAILOR: "ai_resume_tailor",
@@ -34,15 +20,11 @@ export const getUserTier = async function (userId: string): Promise<Subscription
     select: { subscriptionTier: true },
   });
 
-  // No settings row yet means a brand-new account, which is FREE.
   return settings?.subscriptionTier ?? "FREE";
 };
 
-/*
-  Call this from the SERVICE layer, not the controller. A controller guard is
-  bypassed the moment someone points a second route at the same service method;
-  a service guard cannot be.
-*/
+// Call from the service layer, not the controller: a controller guard is bypassed
+// the moment a second route points at the same service method.
 export const assertPro = async function (userId: string, feature: ProFeature) {
   const tier = await getUserTier(userId);
 

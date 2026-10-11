@@ -27,8 +27,6 @@ const draftOutputSchema = z.object({
   newTerms: z.array(z.object({ term: z.string(), evidence: z.string() })).optional(),
 });
 
-// Scaled to how much there is to say, so a thin resume gets a short honest
-// letter instead of a long padded one — padding is where invention creeps in.
 const targetWordsFor = function (data: ResumeDataInput) {
   const facts =
     (data.experience ?? []).reduce((count, entry) => count + (entry.achievements?.length ?? 0) + (entry.description ? 1 : 0), 0) +
@@ -41,17 +39,8 @@ export class CoverLetterDraftService {
   private candidateSource = new CandidateSourceService();
   private keywordService = new JobKeywordService();
 
-  /*
-    Not streamed, deliberately. Every sentence is checked against the
-    candidate's material before the user sees any of it, and a stream would
-    show the claims first and retract them after.
-
-    A letter has no original to fall back to the way a tailored resume does,
-    so a sentence making an unsupported claim is removed rather than reverted.
-    When that happens the model gets one revision with the rejected claims named,
-    and whichever version keeps more supported text wins — removal alone left
-    letters choppy and thin in testing.
-  */
+  // Not streamed: every sentence is checked before the user sees any of it, and a stream would
+  // show the claims first and retract them after.
   async draft(userId: string, input: DraftCoverLetterInput) {
     await assertPro(userId, PRO_FEATURES.AI_COVER_LETTER);
 
@@ -63,7 +52,6 @@ export class CoverLetterDraftService {
       throw new BadRequestError("Add your work experience to your career profile or a resume first. The draft is written from it.");
     }
 
-    // One quota unit per draft, though it can take up to three model calls.
     await consumeAiQuota(userId);
 
     const keywords = application ? await this.keywordService.ensure(application, userId) : [];
@@ -128,14 +116,6 @@ export class CoverLetterDraftService {
     return { body: best.body, removedSentences: best.removed.length, addedTerms: best.addedTerms, source: source.label };
   }
 
-  /*
-    A sentence survives only if it passes the shared claim guard (no unsupported
-    job keyword, no number the candidate's material lacks) and is grounded: at
-    least half of its substantive words appear in the resume, the posting, or the
-    names of the role and company. The second check exists because the first
-    could not see invented outcomes — in testing a draft claimed "strict SLA
-    limits" and "reduced production incidents", neither of which is a keyword.
-  */
   private applyGuard(
     output: z.infer<typeof draftOutputSchema>,
     candidateText: string,

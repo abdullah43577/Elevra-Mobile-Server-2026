@@ -7,14 +7,7 @@ import { rateLimit } from "../lib/rate-limit";
 const router = Router();
 const authController = new AuthController();
 
-/*
-  Every unauthenticated credential or OTP endpoint is limited. These are the
-  only routes an attacker can hit without already holding a token, and each one
-  either issues a code, checks a code, or checks a password.
-
-  Limits are keyed on IP *and* the submitted email, so rotating IPs against one
-  account is capped as well as hammering from a single address.
-*/
+// Keyed on IP and the submitted email, so rotating IPs against one account is capped too.
 const emailFromBody = (req: { body?: { email?: string } }) => req.body?.email?.toLowerCase();
 
 const otpLimiter = rateLimit({
@@ -25,8 +18,6 @@ const otpLimiter = rateLimit({
   message: "Too many attempts. Please wait a few minutes and try again.",
 });
 
-// Sending mail is expensive and spammable, so issuing codes is tighter than
-// checking them.
 const issueLimiter = rateLimit({
   keyPrefix: "otp-issue",
   windowSeconds: 600,
@@ -48,12 +39,7 @@ router.post("/signup", issueLimiter, authController.createUser.bind(authControll
 router.post("/verify-email", otpLimiter, authController.verifyEmail.bind(authController));
 router.post("/resend-verification-otp", issueLimiter, authController.resendVerificationOtp.bind(authController));
 router.post("/signin", loginLimiter, authController.loginUser.bind(authController));
-/*
-  Social sign-in carries no email in the body, so emailFromBody yields nothing
-  and the limiter falls back to the IP alone. That is the right shape here:
-  there is no per-account guessing to cap — the ID token is either validly
-  signed by Google or Apple or it is not — only request volume.
-*/
+// No email in the body, so this falls back to limiting by IP alone.
 const socialLimiter = rateLimit({
   keyPrefix: "social-auth",
   windowSeconds: 900,
@@ -68,8 +54,6 @@ router.post("/reset-password", otpLimiter, authController.resetPassword.bind(aut
 router.get("/profile", validateAccessToken, authController.getProfile.bind(authController));
 router.patch("/profile", validateAccessToken, upload.single("profile_pic"), authController.updateProfile.bind(authController));
 router.post("/profile/settings", validateAccessToken, authController.updateProfileSettings.bind(authController));
-// DELETE rather than a "deactivate" POST: the row really goes, and every store
-// requires account deletion to be reachable from inside the app.
 router.delete("/account", validateAccessToken, authController.deleteAccount.bind(authController));
 router.post("/token", validateRefreshToken, authController.generateNewToken.bind(authController));
 

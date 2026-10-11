@@ -80,8 +80,7 @@ export class CoverLetterController {
       const { id } = req.params;
       const body = updateCoverLetterSchema.parse(req.body);
 
-      // Spread each key conditionally: exactOptionalPropertyTypes rejects an
-      // explicit undefined, which a blanket spread carries for every omitted key.
+      // Conditional spreads: exactOptionalPropertyTypes rejects the undefined a blanket spread carries.
       const coverLetter = await this.coverLetterService.updateCoverLetter(id as string, userId!, {
         ...(body.title && { title: body.title }),
         ...(body.templateId && { templateId: body.templateId }),

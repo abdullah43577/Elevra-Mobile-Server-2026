@@ -57,8 +57,6 @@ export class InterviewPrepService {
     questionId: string,
     data: { text?: string | null; status?: AnswerStatus },
   ) {
-    // Confirms the question exists and is visible to this user before an answer
-    // row is created against it.
     await this.getQuestionById(questionId, userId);
 
     const writeData: AnswerWriteData = {
@@ -84,7 +82,6 @@ export class InterviewPrepService {
     return this.prepRepo.upsertAnswer(userId, questionId, {
       audioUrl: upload.secure_url,
       audioDuration: duration,
-      // A new take makes the last one's transcript and coaching meaningless.
       transcript: null,
       feedback: Prisma.DbNull,
     });
@@ -102,12 +99,7 @@ export class InterviewPrepService {
     });
   }
 
-  /*
-    Reported once at the end of a run. Answers are created first for any question
-    rehearsed but never written down — otherwise the questions someone practises
-    out loud and never types would never register as practised at all, which is
-    precisely the group the ordering is meant to surface.
-  */
+  // Creates answers for questions rehearsed but never written down, or they would never count as practised.
   async recordPractice(userId: string, questionIds: string[]) {
     const visible = await this.prepRepo.findQuestions(userId, {});
     const visibleIds = new Set(visible.map(question => question.id));
@@ -159,11 +151,7 @@ export class InterviewPrepService {
     return this.prepRepo.unlinkFromApplication(applicationId, questionId);
   }
 
-  /*
-    Seeded questions are visible to everyone and owned by nobody, so "can read"
-    and "can edit" are different checks here. Without this a user could edit the
-    shared catalogue for every other user.
-  */
+  // Seeded questions are visible to everyone but owned by nobody, so reading and editing are separate checks.
   private async assertQuestionOwned(questionId: string, userId: string) {
     const owned = await this.prepRepo.findOwnedQuestion(questionId, userId);
     if (!owned) {

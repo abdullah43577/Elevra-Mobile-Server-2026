@@ -33,15 +33,9 @@ const hashJobDescription = function (text: string) {
   return createHash("sha256").update(text).digest("hex").slice(0, 16);
 };
 
-/*
-  The screening keywords of an application's posting, shared by every feature
-  that writes toward a job. Extraction costs a model call, so the result is
-  cached on the application against a hash of the posting it came from.
-*/
 export class JobKeywordService {
   private applicationRepo = new JobApplicationRepository();
 
-  // Null when nothing was extracted yet, or the posting changed since.
   getCurrent(application: KeywordSource): JobKeyword[] | null {
     const jobDescription = application.jobDescription?.trim();
     if (!jobDescription || application.jobKeywordsHash !== hashJobDescription(jobDescription)) return null;

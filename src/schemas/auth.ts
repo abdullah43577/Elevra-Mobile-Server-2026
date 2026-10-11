@@ -1,10 +1,6 @@
 import z from "zod";
 
-/*
-  Optional because an account with no password (a future OAuth provider) has
-  nothing to verify against. Whether it is *required* is the service's call —
-  that is the only layer that knows how the account was created.
-*/
+// Optional: whether it is required depends on how the account was created, which only the service knows.
 export const deleteAccountSchema = z.object({
   password: z.string().min(1).optional(),
 });
@@ -45,12 +41,7 @@ export const resetPasswordSchema = z.object({
 
 export type ResetPasswordValues = z.infer<typeof resetPasswordSchema>;
 
-/*
-  Apple hands the user's name to the client *once*, on the very first
-  authorization, and never again — it is not in the identity token at all. So
-  the client forwards whatever it was given and the service treats it as a
-  best-effort hint, never as identity. `idToken` is the only trusted field here.
-*/
+// Apple sends the name only on the first authorization; a best-effort hint, never identity.
 export const socialAuthSchema = z.object({
   idToken: z.string().min(1, "A sign-in token is required"),
   first_name: z.string().trim().min(1).optional(),

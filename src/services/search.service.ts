@@ -21,17 +21,7 @@ const DEFAULT_LIMIT_PER_TYPE = 20;
 const SNIPPET_LEAD = 32;
 const SNIPPET_TRAIL = 96;
 
-/*
-  Note content is tentap's HTML, so a raw slice of it renders as
-  "<p>Spoke to the</p>" in a result row. Stripping is display-only — the stored
-  content is untouched.
-
-  It does not fix the other half of that problem: the `contains` match runs
-  against the raw markup, so searching "span" or "href" can match a note whose
-  visible text contains neither. Two characters is the query floor precisely
-  because the shortest tag names are where this is worst, and in practice people
-  search for words rather than element names.
-*/
+// Display-only: note content is tentap HTML, and a raw slice would render tags in a result row.
 const stripMarkup = (value: string) =>
   value
     .replace(/<[^>]*>/g, " ")
@@ -48,8 +38,6 @@ const buildSnippet = (body: string | null | undefined, term: string): string | u
 
   const index = text.toLowerCase().indexOf(term.toLowerCase());
 
-  // A title match still earns a preview — the user wants to recognise the item,
-  // not just be told it exists — so fall back to the opening of the body.
   if (index === -1) {
     return text.length > SNIPPET_TRAIL ? `${text.slice(0, SNIPPET_TRAIL).trim()}...` : text;
   }
@@ -63,8 +51,6 @@ const buildSnippet = (body: string | null | undefined, term: string): string | u
 const includesTerm = (value: string | null | undefined, term: string) =>
   !!value && value.toLowerCase().includes(term.toLowerCase());
 
-// BACKGROUND -> Background. The interview categories are all single words, so a
-// duplicated label map on this side would be drift waiting to happen.
 const humanise = (value: string) => value.charAt(0) + value.slice(1).toLowerCase();
 
 export class SearchService {
@@ -77,11 +63,6 @@ export class SearchService {
     const term = options.query.trim();
     const limit = options.limit ?? DEFAULT_LIMIT_PER_TYPE;
 
-    /*
-      All six run at once. Run sequentially they would stack six round trips on
-      every debounced keystroke; the queries are independent and each is scoped
-      to one user's rows.
-    */
     const [notes, recordings, resumes, applications, coverLetters, questions] = await Promise.all([
       this.searchRepo.searchNotes(userId, term, limit),
       this.searchRepo.searchRecordings(userId, term, limit),
@@ -135,7 +116,6 @@ export class SearchService {
           ...(resume.template && { subtitle: resume.template.name }),
           updatedAt: resume.updatedAt,
         },
-        // Resumes are matched on title alone, so every hit is a title hit.
         isTitleMatch: true,
       });
     }
@@ -189,20 +169,13 @@ export class SearchService {
           title: question.text,
           subtitle: humanise(question.category),
           ...(snippet && { snippet }),
-          // Dated by the answer, not the question: the seeded catalogue never
-          // changes, so question.updatedAt would sort every bank row identically.
+          // Dated by the answer: the seeded questions never change, so their updatedAt would all tie.
           updatedAt: answer?.updatedAt ?? question.updatedAt,
         },
         isTitleMatch: includesTerm(question.text, term),
       });
     }
 
-    /*
-      Ranking is deliberately two-tier rather than scored. A match on the thing's
-      name is what the user typed; a match buried in a body is a lead. Within a
-      tier the most recently touched wins, which is the ordering every list in
-      the app already uses.
-    */
     ranked.sort((a, b) => {
       if (a.isTitleMatch !== b.isTitleMatch) return a.isTitleMatch ? -1 : 1;
       return b.result.updatedAt.getTime() - a.result.updatedAt.getTime();
@@ -210,13 +183,7 @@ export class SearchService {
 
     const results = ranked.map(entry => entry.result);
 
-    /*
-      Counts come from the returned rows rather than six extra COUNT queries.
-      They drive the filter chips, and each type is already capped at `limit`, so
-      a user with more than 20 matching notes sees "20" rather than the true
-      figure — worth it to avoid doubling the query load on every keystroke for a
-      number that only labels a chip.
-    */
+    // Counts come from the capped rows rather than COUNT queries, so a chip shows at most `limit`.
     const counts = SEARCH_RESULT_TYPES.reduce(
       (accumulator, type) => {
         accumulator[type] = results.filter(result => result.type === type).length;

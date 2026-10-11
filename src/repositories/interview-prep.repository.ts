@@ -1,13 +1,7 @@
 import type { AnswerStatus, InterviewCategory, Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
 
-/*
-  The catalogue is global (userId null) plus whatever the user wrote themselves,
-  so every read is scoped as "seeded OR mine" rather than "mine". That is the one
-  place this domain deviates from the every-query-is-scoped-by-userId rule, and
-  it is why questions are read-only unless you own them — the service enforces
-  that separately.
-*/
+// Questions are read as "seeded OR mine": the catalogue is global (userId null).
 const visibleTo = function (userId: string): Prisma.InterviewQuestionWhereInput {
   return { isActive: true, OR: [{ userId: null }, { userId }] };
 };
@@ -94,7 +88,6 @@ export class InterviewPrepRepository {
     });
   }
 
-  /** Only a question the user authored can be edited or deleted. */
   async findOwnedQuestion(questionId: string, userId: string) {
     return prisma.interviewQuestion.findFirst({
       where: { id: questionId, userId },
@@ -111,11 +104,7 @@ export class InterviewPrepRepository {
     });
   }
 
-  /*
-    Saves coaching only if the take it was computed from is still the current
-    one. A new take uploaded while coaching ran would otherwise receive feedback
-    about the recording it replaced. Returns false when the take moved on.
-  */
+  // Saves only if the take is still current; returns false when a new take replaced it.
   async saveCoachingForTake(userId: string, questionId: string, audioUrl: string, data: { transcript: string; feedback: Prisma.InputJsonValue }) {
     const { count } = await prisma.interviewAnswer.updateMany({
       where: { userId, questionId, audioUrl },
@@ -130,11 +119,6 @@ export class InterviewPrepRepository {
     });
   }
 
-  /*
-    One statement for a whole practice run. The runner would otherwise fire a
-    request per question, which on a bad connection means a session that half
-    records itself.
-  */
   async recordPractice(userId: string, questionIds: string[], practisedAt: Date) {
     return prisma.interviewAnswer.updateMany({
       where: { userId, questionId: { in: questionIds } },
@@ -175,11 +159,6 @@ export class InterviewPrepRepository {
     });
   }
 
-  /*
-    Generated questions and their pins land together or not at all: a question
-    created but never pinned would sit in the bank with no trace of which
-    application it was written for.
-  */
   async createAndPinQuestions(
     userId: string,
     applicationId: string,

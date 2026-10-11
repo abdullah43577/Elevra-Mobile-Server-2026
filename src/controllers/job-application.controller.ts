@@ -102,11 +102,7 @@ export class JobApplicationController {
     }
   }
 
-  /*
-    Runs the reminder sweep for the caller only. The scheduled job sweeps every
-    user; this exists so reminders can be exercised without waiting for 09:00,
-    and is safe to expose because it is scoped to req.userId.
-  */
+  // Sweeps the caller only, which is what makes it safe to expose.
   async runReminders(req: IUserRequest, res: Response) {
     try {
       const { userId } = req;

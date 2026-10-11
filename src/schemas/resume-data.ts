@@ -1,14 +1,6 @@
 import { z } from "zod";
 
-/*
-  The section shapes shared by Resume and CareerProfile. Both models store the
-  identical Json columns so the client can copy a profile straight into a new
-  resume, and they must validate identically — a field the profile accepts but
-  the resume rejects would silently vanish on prefill.
-
-  These mirror `../../elevra/types/resume/data.ts`. Change one, change both.
-*/
-
+// Shared by Resume and CareerProfile; mirrors ../../elevra/types/resume/data.ts. Change both.
 export const personalInfoSchema = z.object({
   firstName: z.string().optional(),
   lastName: z.string().optional(),
@@ -56,10 +48,7 @@ export const certificationSchema = z.object({
   expiry: z.string().optional(),
 });
 
-/*
-  `url` is a plain string, not z.url(). People type "github.com/me" without a
-  protocol and rejecting that loses the whole save for a cosmetic reason.
-*/
+// `url` is a plain string, not z.url(): people type "github.com/me" without a protocol.
 export const projectSchema = z.object({
   name: z.string(),
   description: z.string().optional(),

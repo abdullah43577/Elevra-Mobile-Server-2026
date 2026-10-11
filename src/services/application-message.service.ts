@@ -13,24 +13,10 @@ import { CandidateSourceService } from "./candidate-source.service";
 interface KindSpec {
   brief: string;
   subject: (role: string) => string;
-  /*
-    Whether the message draws on the application's notes, voice memos and the
-    resume — and is therefore grounded against them, sentence by sentence.
-  */
   usesContext: boolean;
-  // A draft that does not do this has failed its one job.
   action: RegExp;
 }
 
-/*
-  Two shapes of message. A follow-up or a thank-you is about the substance of
-  the application, so it gets the context and the grounding. Accepting,
-  negotiating, declining and answering a rejection are courtesy around one
-  action, with no facts to ground: given the context, the model rehashed the
-  interview in every one of them; grounded, the filter stripped the very
-  sentence that accepted or declined. Those get only the names and the user's
-  own points, and a check that the action is actually there.
-*/
 const KINDS: Record<MessageKind, KindSpec> = {
   FOLLOW_UP: {
     brief:
@@ -83,11 +69,6 @@ Reply with JSON only: {"paragraphs": string[]}`;
 
 const messageSchema = z.object({ paragraphs: z.array(z.string()).min(1).max(5) });
 
-/*
-  The polite vocabulary of a short work email, on top of the letter's, ignored
-  when measuring grounding — "I hope you're well and wanted to follow up" names
-  nothing that could be invented.
-*/
 const MESSAGE_VOCABULARY: ReadonlySet<string> = new Set([
   ...LETTER_VOCABULARY,
   "hope", "hoping", "follow", "following", "wanted", "update", "updates", "hear", "hearing", "regarding", "about",
@@ -105,12 +86,6 @@ export class ApplicationMessageService {
   private userRepo = new UserRepository();
   private candidateSource = new CandidateSourceService();
 
-  /*
-    A draft only. Nothing is sent from the server — Resend stays transactional
-    — the client shares it or opens the user's own mail app. Subject lines are
-    templated, not generated: there is nothing for a model to add to "Thank
-    you — Backend Engineer interview".
-  */
   async draft(userId: string, applicationId: string, input: DraftMessageInput) {
     await assertPro(userId, PRO_FEATURES.AI_MESSAGE_DRAFTS);
 

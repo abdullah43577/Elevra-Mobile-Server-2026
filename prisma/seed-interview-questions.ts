@@ -1,24 +1,6 @@
 import { prisma } from "../src/lib/prisma";
 import type { InterviewCategory } from "../src/generated/prisma/client";
 
-/*
-  The seeded question bank.
-
-  Tagged by category, never by job title. Coverage per role would be an endless
-  content treadmill that ships thin and goes stale, and the questions actually
-  worth rehearsing are role-agnostic — behavioural, situational, motivation.
-  Role-specific technical questions are the user's to add, or AI's to generate.
-
-  Every question carries `guidance`: one line on what a strong answer covers.
-  A bare question with no coaching is the browsable-bank failure mode this
-  feature exists to avoid.
-
-  `seedKey` is stable and unique, so re-running this updates rows in place
-  rather than duplicating the catalogue.
-
-  Run with: npx tsx prisma/seed-interview-questions.ts
-*/
-
 interface SeedQuestion {
   key: string;
   text: string;
@@ -27,7 +9,6 @@ interface SeedQuestion {
 }
 
 const QUESTIONS: SeedQuestion[] = [
-  // ─── Background ────────────────────────────────────────────────
   {
     key: "bg-tell-me-about-yourself",
     text: "Tell me about yourself.",
@@ -64,7 +45,6 @@ const QUESTIONS: SeedQuestion[] = [
       "Shows judgement. Give the options you weighed and the reasoning, not just the outcome. It is fine if it did not work out.",
   },
 
-  // ─── Behavioural (STAR) ────────────────────────────────────────
   {
     key: "beh-disagreed-manager",
     text: "Tell me about a time you disagreed with your manager.",
@@ -185,7 +165,6 @@ const QUESTIONS: SeedQuestion[] = [
       "Specific person, specific gap, specific change. Works even without formal reports.",
   },
 
-  // ─── Situational ───────────────────────────────────────────────
   {
     key: "sit-first-90-days",
     text: "What would your first 90 days in this role look like?",
@@ -236,7 +215,6 @@ const QUESTIONS: SeedQuestion[] = [
       "Make the cost visible and force a trade-off decision rather than silently absorbing it.",
   },
 
-  // ─── Motivation ────────────────────────────────────────────────
   {
     key: "mot-why-this-role",
     text: "Why do you want this role?",
@@ -294,7 +272,6 @@ const QUESTIONS: SeedQuestion[] = [
       "Be honest without turning it into leverage this early. A short, calm answer is enough.",
   },
 
-  // ─── Strengths and self-awareness ──────────────────────────────
   {
     key: "str-greatest-strength",
     text: "What is your greatest strength?",
@@ -345,7 +322,6 @@ const QUESTIONS: SeedQuestion[] = [
       "Pick something genuine but not central, and say how you would close the gap. Claiming there is nothing reads as low self-awareness.",
   },
 
-  // ─── Closing ───────────────────────────────────────────────────
   {
     key: "cls-questions-for-us",
     text: "Do you have any questions for us?",

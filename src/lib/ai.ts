@@ -7,8 +7,7 @@ const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const REQUEST_TIMEOUT_MS = 90_000;
 const DEFAULT_MAX_TOKENS = 4096;
 
-// Tried in order; the first that answers wins. OpenRouter's free ids churn
-// month to month — when every one of them 404s, suspect this list first.
+// OpenRouter free ids churn month to month; when every one 404s, suspect this list first.
 const GROQ_MODELS = ["openai/gpt-oss-120b", "openai/gpt-oss-20b"];
 const OPENROUTER_MODELS = [
   "nvidia/nemotron-3-super-120b-a12b:free",
@@ -105,8 +104,7 @@ const buildRequest = function (attempt: Attempt, options: CompletionOptions, ext
   return { method: "POST", headers, body: JSON.stringify(body), signal };
 };
 
-// Deliberately ignores a `reasoning` field: falling back to it would hand the
-// user a model's scratch work as the answer. An empty answer fails the attempt.
+// Ignores a `reasoning` field on purpose: falling back to it would return the model's scratch work.
 const messageText = function (message: unknown): string {
   const content = (message as { content?: unknown } | undefined)?.content;
   if (typeof content === "string") return content;
@@ -116,7 +114,6 @@ const messageText = function (message: unknown): string {
   return "";
 };
 
-// Models wrap JSON in fences or prose despite instructions; cut to the object.
 const extractJson = function (raw: string): string {
   const text = raw
     .trim()
@@ -228,11 +225,6 @@ const attemptStream = async function (attempt: Attempt, options: StreamTextOptio
   return full || fail("returned an empty response");
 };
 
-/*
-  Falls back between providers only until the first chunk has been sent. After
-  that a failure ends the stream: the caller has already shown part of the
-  answer, and nothing it does next can be honest about a second model.
-*/
 export const streamText = async function (options: StreamTextOptions): Promise<{ text: string; model: string }> {
   const attempts = buildAttempts();
   if (!attempts.length) throw new AiUnavailableError();
@@ -262,17 +254,12 @@ const GROQ_TRANSCRIPTION_URL = "https://api.groq.com/openai/v1/audio/transcripti
 const TRANSCRIPTION_MODELS = ["whisper-large-v3-turbo", "whisper-large-v3"];
 
 export interface TranscribeOptions {
-  /** Whisper picks the decoder from the extension, so it must be right. */
+  // Whisper picks the decoder from the extension, so it must be right.
   filename: string;
   prompt?: string;
 }
 
-/*
-  Groq only: OpenRouter has no speech-to-text, so the fallback is between
-  Groq's two Whisper models, and a missing key or both failing is
-  AI_UNAVAILABLE. Silence comes back as an empty string — the caller decides
-  what that means.
-*/
+// Groq only: OpenRouter has no speech-to-text.
 export const transcribe = async function (audio: Uint8Array, options: TranscribeOptions): Promise<string> {
   const apiKey = getEnv("GROQ_API_KEY")?.trim();
   if (!apiKey) throw new AiUnavailableError();

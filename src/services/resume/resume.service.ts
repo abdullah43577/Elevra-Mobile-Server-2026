@@ -4,13 +4,6 @@ import { BadRequestError, NotFoundError } from "../../lib/errors";
 
 const TITLE_MAX = 100;
 
-/*
-  "Tailored CV" -> "Tailored CV (Copy)" -> "Tailored CV (Copy 2)".
-
-  Duplicating a duplicate is the common case, not the edge one — that is the
-  whole point of the feature — so plain suffixing would leave people with
-  "(Copy) (Copy) (Copy)" by the third role they applied to.
-*/
 const nextCopyTitle = function (title: string) {
   const match = title.match(/^(.*) \(Copy(?: (\d+))?\)$/);
 
@@ -54,7 +47,6 @@ export class ResumeService {
       references?: any;
     },
   ) {
-    // Validate template exists
     await this.templateService.getTemplateById(data.templateId);
 
     if (!data.title.trim()) {
@@ -76,12 +68,6 @@ export class ResumeService {
     });
   }
 
-  /*
-    Deliberately free, not Pro. Building is always free and only the finished
-    PDF is paid (§12) — and one tailored resume per application is the whole
-    premise of the tracker, so charging to copy one would gate the workflow
-    rather than the deliverable.
-  */
   async duplicateResume(resumeId: string, userId: string, title?: string) {
     const source = await this.getResumeById(resumeId, userId);
 
@@ -89,11 +75,7 @@ export class ResumeService {
       userId,
       title: title?.trim() || nextCopyTitle(source.title),
       templateId: source.templateId,
-      /*
-        Each section is spread only when it is non-null. Prisma rejects a plain
-        `null` for a nullable Json column — it wants Prisma.DbNull — so copying
-        a resume with empty sections would throw at the first unset one.
-      */
+      // Spread only when non-null: Prisma rejects a plain null for a nullable Json column (wants DbNull).
       ...(source.personalInfo !== null && { personalInfo: source.personalInfo }),
       ...(source.experience !== null && { experience: source.experience }),
       ...(source.education !== null && { education: source.education }),
@@ -122,10 +104,8 @@ export class ResumeService {
       isPublished?: boolean;
     },
   ) {
-    // Verify resume exists
     await this.getResumeById(resumeId, userId);
 
-    // Validate template if provided
     if (data.templateId) {
       await this.templateService.getTemplateById(data.templateId);
     }
@@ -138,15 +118,6 @@ export class ResumeService {
     return this.resumeRepo.delete(resumeId, userId);
   }
 
-  /*
-    Records an export. The PDF itself is produced on-device — the client builds
-    the resume HTML and hands it to expo-print, which uses the OS renderer to
-    emit real selectable text. Server-side rendering would mean shipping
-    Chromium alongside the API for something the phone already does well.
-
-    This endpoint only tracks lastExportedAt. Export is free (client CLAUDE.md
-    §31, decision 1), so there is nothing to gate here.
-  */
   async exportResume(resumeId: string, userId: string) {
     const resume = await this.getResumeById(resumeId, userId);
 

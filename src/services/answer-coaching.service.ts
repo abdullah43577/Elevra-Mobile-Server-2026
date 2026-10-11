@@ -14,8 +14,7 @@ const MIN_REWRITE_GROUNDING = 0.7;
 // the filler count is half the point of coaching.
 export const FILLER_PRESERVING_PROMPT = "Umm, let me think like, hmm... Okay, so, uh, here's what I, you know, did.";
 
-// "like" and "actually" are left out: in most sentences they carry meaning, and
-// counting them would accuse people of tics they do not have.
+// "like" and "actually" are left out: in most sentences they carry meaning.
 const FILLERS = ["um", "umm", "uh", "uhh", "er", "erm", "ah", "hmm", "you know", "i mean", "basically", "literally", "kind of", "sort of"];
 
 const COACH_SYSTEM_PROMPT = `You coach a candidate on one recorded interview answer. You get the question, its category, and a transcript of what they said.
@@ -44,12 +43,6 @@ const critiqueSchema = z.object({
 
 const escapeRegExp = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/*
-  Everything that can be counted is counted here rather than asked of the
-  model: a pace or a filler tally that changes when the same take is coached
-  twice would be worse than none. Length matches the practice runner's own
-  guidance — amber past two minutes, red past three.
-*/
 export const measureTake = function (transcript: string, durationSeconds: number | null) {
   const normalized = normalizeText(transcript);
   const words = normalized.trim().split(" ").filter(Boolean);
@@ -75,9 +68,6 @@ export const measureTake = function (transcript: string, durationSeconds: number
   };
 };
 
-// The rewrite is the one part that could put words in the candidate's mouth,
-// so it must stay inside the transcript: no new numbers, and most of its words
-// already said.
 export const isFaithfulRewrite = function (rewrite: string, transcript: string) {
   const spokenNumbers = numbersIn(transcript);
   if ([...numbersIn(rewrite)].some(number => !spokenNumbers.has(number))) return false;
@@ -87,11 +77,6 @@ export const isFaithfulRewrite = function (rewrite: string, transcript: string) 
 export class AnswerCoachingService {
   private prepRepo = new InterviewPrepRepository();
 
-  /*
-    Transcribes the current take and critiques it. Coaching the same take again
-    returns what is stored — no model call, no quota — because a new take is the
-    only thing that clears it.
-  */
   async coachAnswer(userId: string, questionId: string) {
     await assertPro(userId, PRO_FEATURES.AI_ANSWER_COACHING);
 

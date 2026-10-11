@@ -1,19 +1,7 @@
 import { groundedShare } from "./keyword-match";
 
-/*
-  Sentence-level grounding for model-written prose — cover letters (F6) and
-  application messages (F7). A sentence survives only if the caller's own claim
-  check passes and at least half its substantive words appear in the source
-  material, ignoring the ordinary vocabulary such prose is made of.
-*/
-
 export const MIN_GROUNDING = 0.5;
 
-/*
-  Ordinary letter vocabulary, ignored when measuring grounding. Without it the
-  polite parts of a letter ("I'd welcome the chance to talk") would count as
-  unsupported claims and be removed.
-*/
 export const LETTER_VOCABULARY: ReadonlySet<string> = new Set([
   "welcome", "chance", "talk", "discuss", "discussing", "look", "looking", "forward", "help", "helping", "team", "teams",
   "role", "position", "apply", "applying", "application", "opportunity", "contribute", "contributing", "bring", "bringing",
@@ -27,8 +15,6 @@ export const LETTER_VOCABULARY: ReadonlySet<string> = new Set([
   "good", "including", "include", "includes",
 ]);
 
-// A model told to stick to the resume will sometimes narrate it instead ("The
-// resume lists Node.js…"). True, grounded, and useless in a letter.
 export const META_REFERENCE = /\b(the|this) (resume|candidate|posting|job description)\b|\bcandidate['’]?s?\b/i;
 
 export const GREETING = /^(dear|hi|hello|to whom)\b/i;
@@ -44,17 +30,10 @@ export const splitSentences = function (paragraph: string) {
 };
 
 interface FilterOptions {
-  /** The caller's own check — numbers, evidenced keywords. */
   isSupported: (sentence: string) => boolean;
-  /** Omitted for prose with no facts to ground, such as accepting an offer. */
   grounding?: { source: ReadonlySet<string>; vocabulary: ReadonlySet<string> };
 }
 
-/*
-  Drops greetings and sign-offs the model adds anyway, then every sentence that
-  narrates its input, fails the caller's check, or is not grounded. Returns
-  what is left and what was removed.
-*/
 export const filterSentences = function (paragraphs: string[], { isSupported, grounding }: FilterOptions) {
   const removed: string[] = [];
 

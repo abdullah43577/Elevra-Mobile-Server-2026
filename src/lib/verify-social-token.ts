@@ -6,7 +6,7 @@ export type SocialProvider = "GOOGLE" | "APPLE";
 
 export interface SocialIdentity {
   provider: SocialProvider;
-  /** The provider's stable subject id. The only field safe to key an account on. */
+  // The only field safe to key an account on.
   providerId: string;
   email: string | null;
   emailVerified: boolean;
@@ -15,15 +15,8 @@ export interface SocialIdentity {
   profile_pic: string | null;
 }
 
-/*
-  The client is untrusted input, so it never sends us "this is who I am" — it
-  sends the provider's signed ID token and we check the signature ourselves.
-
-  createRemoteJWKSet caches the provider's keys and re-fetches on an unknown
-  `kid`, so these are module-level singletons on purpose: one per process, not
-  one per request. Building them inside the verify call would fetch Google's or
-  Apple's key set on every sign-in.
-*/
+// Module-level on purpose: createRemoteJWKSet caches keys, so one per call would refetch
+// the provider's key set on every sign-in.
 const GOOGLE_JWKS = createRemoteJWKSet(new URL("https://www.googleapis.com/oauth2/v3/certs"));
 const APPLE_JWKS = createRemoteJWKSet(new URL("https://appleid.apple.com/auth/keys"));
 
@@ -33,18 +26,8 @@ const splitList = (value?: string) =>
     .map((entry) => entry.trim())
     .filter(Boolean);
 
-/*
-  Every OAuth client id the token may legitimately be addressed to.
-
-  Getting this wrong is the classic ID-token bug: a token verifies perfectly
-  against Google's keys and is still worthless to us, because it was issued to
-  somebody else's app for the same user. The audience check is what ties the
-  signature to *our* client.
-
-  Android is included even though the client never sends an android client id —
-  google-signin asks for an idToken audienced to the *web* client id, and the
-  android entry is only here for setups that configure it explicitly.
-*/
+// The audience check ties the signature to our client; without it a token issued to another
+// app for the same user would verify.
 const googleAudiences = () => {
   const { GOOGLE_WEB_CLIENT_ID, GOOGLE_IOS_CLIENT_ID, GOOGLE_ANDROID_CLIENT_ID } = getEnv([
     "GOOGLE_WEB_CLIENT_ID",
@@ -55,12 +38,7 @@ const googleAudiences = () => {
   return [...splitList(GOOGLE_WEB_CLIENT_ID), ...splitList(GOOGLE_IOS_CLIENT_ID), ...splitList(GOOGLE_ANDROID_CLIENT_ID)];
 };
 
-/*
-  On iOS the audience is the app's bundle id. On Android and the web it is the
-  Services ID configured in the Apple developer portal, which is a different
-  string for the same app — both have to be accepted or Apple sign-in works on
-  exactly one platform.
-*/
+// Apple's audience is the bundle id on iOS but the Services ID elsewhere; both must be accepted.
 const appleAudiences = () => {
   const { APPLE_BUNDLE_ID, APPLE_SERVICE_ID } = getEnv(["APPLE_BUNDLE_ID", "APPLE_SERVICE_ID"]);
 
@@ -77,9 +55,6 @@ const nameFromClaims = (payload: JWTPayload) => {
 
   if (given || family) return { first_name: given, last_name: family };
 
-  // Apple never puts a name in the token; Google occasionally supplies only the
-  // display name. Splitting on the first space is a guess, but a better one
-  // than leaving the profile blank.
   const full = typeof payload.name === "string" ? payload.name.trim() : "";
   if (!full) return { first_name: null, last_name: null };
 
@@ -96,9 +71,6 @@ const verify = async function (token: string, options: { jwks: ReturnType<typeof
     const { payload } = await jwtVerify(token, options.jwks, {
       issuer: options.issuer,
       audience: options.audience,
-      // Signature, issuer, audience and expiry are all checked by jwtVerify.
-      // A clock skew allowance keeps a phone whose clock is a few seconds fast
-      // from being rejected on a token that is genuinely valid.
       clockTolerance: 30,
     });
 
@@ -115,8 +87,7 @@ export const verifySocialToken = async function (provider: SocialProvider, idTok
     provider === "GOOGLE"
       ? await verify(idToken, {
           jwks: GOOGLE_JWKS,
-          // Google has issued tokens under both spellings for years and still
-          // does. Accepting only the https form rejects real tokens.
+          // Google issues tokens under both spellings; accepting only the https form rejects real ones.
           issuer: ["https://accounts.google.com", "accounts.google.com"],
           audience: googleAudiences(),
           provider,

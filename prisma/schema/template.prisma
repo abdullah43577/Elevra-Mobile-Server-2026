@@ -1,10 +1,4 @@
-// ────────────────────────────────
-// Enums
-// ────────────────────────────────
-
 enum LayoutKey {
-  // ATS-first set. All single-column; they differ in header and section-title
-  // treatment only.
   ATS_CLEAN
   ATS_ACCENT
   MODERN_BANNER
@@ -12,8 +6,7 @@ enum LayoutKey {
   TIMELINE_ACCENT
   TECH_FOCUSED
 
-  // Original four. Retired from the catalogue (isActive false) but kept in the
-  // enum because existing Resume rows still reference their templates.
+  // Retired (isActive false) but kept: existing Resume rows still reference them.
   PROFESSIONAL_CLASSIC
   PROFESSIONAL_SLEEK
   CREATIVE_SPLIT
@@ -34,10 +27,6 @@ enum Spacing {
   NORMAL
   SPACIOUS
 }
-
-// ────────────────────────────────
-// Theme
-// ────────────────────────────────
 
 model ResumeTheme {
   id               String     @id @default(cuid())
@@ -65,10 +54,6 @@ model ResumeTheme {
   updatedAt        DateTime   @updatedAt
 }
 
-// ────────────────────────────────
-// Template
-// ────────────────────────────────
-
 model Template {
   id          String     @id @default(cuid())
   name        String
@@ -79,7 +64,6 @@ model Template {
   themeId     String
   theme       ResumeTheme      @relation(fields: [themeId], references: [id])
 
-  // Sample resume content used to render the template's preview/thumbnail.
   defaultData Json
 
   isActive    Boolean    @default(true)

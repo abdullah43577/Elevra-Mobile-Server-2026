@@ -6,7 +6,6 @@ import { upload } from "../lib/multer-config";
 const router = Router();
 const voiceController = new VoiceRecordingController();
 
-// All voice recording routes require authentication
 router.use(validateAccessToken);
 
 router.get("/", voiceController.getRecordings.bind(voiceController));

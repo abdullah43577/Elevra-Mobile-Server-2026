@@ -5,14 +5,11 @@ import { validateAccessToken } from "../lib/validate-token";
 const router = Router();
 const resumeController = new ResumeController();
 
-// All resume routes require authentication
 router.use(validateAccessToken);
 
-// ==================== Templates ====================
 router.get("/templates", resumeController.getTemplates.bind(resumeController));
 router.get("/templates/:id", resumeController.getTemplateById.bind(resumeController));
 
-// ==================== Resumes ====================
 router.get("/", resumeController.getResumes.bind(resumeController));
 router.get("/:id", resumeController.getResumeById.bind(resumeController));
 router.post("/", resumeController.createResume.bind(resumeController));

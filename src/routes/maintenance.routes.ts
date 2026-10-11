@@ -4,10 +4,7 @@ import { MaintenanceController } from "../controllers/maintenance.controller";
 const router = Router();
 const maintenanceController = new MaintenanceController();
 
-/*
-  Deliberately not behind validateAccessToken: there is no user here. It is
-  driven by a platform cron job and guarded by CRON_SECRET instead.
-*/
+// Not behind validateAccessToken: driven by a platform cron, guarded by CRON_SECRET.
 router.post(
   "/reminders/sweep",
   maintenanceController.runReminderSweep.bind(maintenanceController),

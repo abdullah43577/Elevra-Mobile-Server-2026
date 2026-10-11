@@ -61,7 +61,6 @@ export class AuthController {
       const data = signInSchema.parse(req.body);
 
       const result = await this.authService.login(data);
-      // remove result from user object
       const { user, ...rest } = result;
       const { password: _, ...userWithoutPassword } = user;
       res.status(200).json({ message: "Login Successful", data: { user: userWithoutPassword, token: rest } });
@@ -70,12 +69,6 @@ export class AuthController {
     }
   }
 
-  /*
-    One handler for both providers. Sign-in and sign-up are the same request:
-    the client cannot know whether the Google account it just authenticated has
-    been here before, and asking it to guess would give us two endpoints that
-    must behave identically anyway.
-  */
   private async socialSignIn(provider: SocialProvider, req: IUserRequest, res: Response) {
     try {
       const data = socialAuthSchema.parse(req.body);
@@ -85,8 +78,6 @@ export class AuthController {
       const { user, ...rest } = result;
       const { password: _, ...userWithoutPassword } = user;
 
-      // Deliberately the same shape as loginUser, so the client's existing
-      // session handling works unchanged.
       res.status(200).json({ message: "Login Successful", data: { user: userWithoutPassword, token: rest } });
     } catch (error) {
       handleErrors({ res, error });

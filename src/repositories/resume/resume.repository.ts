@@ -1,12 +1,7 @@
 import type { Prisma } from "../../generated/prisma/client";
 import { prisma } from "../../lib/prisma";
 
-/*
-  The template's theme must be nested, not just the template. Every renderer —
-  the on-screen preview and the PDF export alike — reads template.theme for its
-  colours and spacing, so a bare `template: true` hands the client a template
-  with an undefined theme and the export throws on the first colour lookup.
-*/
+// Theme must be nested: every renderer reads template.theme, and export throws without it.
 const resumeInclude = {
   template: { include: { theme: true } },
   customTheme: true,

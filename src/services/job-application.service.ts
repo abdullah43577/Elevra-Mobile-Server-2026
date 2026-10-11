@@ -6,8 +6,6 @@ import { NotificationService } from "./notification.service";
 
 const ALL_STATUSES: ApplicationStatus[] = ["SAVED", "APPLIED", "INTERVIEWING", "OFFER", "REJECTED", "WITHDRAWN"];
 
-// Anything past SAVED means the application actually went out, so appliedAt
-// should be stamped even when the client did not send one.
 const SUBMITTED_STATUSES: ApplicationStatus[] = ["APPLIED", "INTERVIEWING", "OFFER", "REJECTED"];
 
 const STATUS_HEADLINES: Record<ApplicationStatus, string> = {
@@ -130,8 +128,6 @@ export class JobApplicationService {
         updateData.statusChangedAt = new Date();
       }
 
-      // Stamp appliedAt the first time an application leaves SAVED, unless the
-      // client is explicitly setting the date itself.
       if (data.status && SUBMITTED_STATUSES.includes(data.status) && !existing.appliedAt && data.appliedAt === undefined) {
         updateData.appliedAt = new Date();
       }

@@ -44,12 +44,6 @@ const generatedSchema = z.object({
 
 type GeneratedQuestion = z.infer<typeof generatedSchema>["questions"][number];
 
-/*
-  A question is kept only if the passage it claims to be about really exists —
-  the quote must appear in the posting or resume it names — and it carries no
-  number that neither of them contains. That is what stops "Tell me about
-  leading the Kafka migration" for a candidate who never touched Kafka.
-*/
 export const groundQuestions = function (questions: GeneratedQuestion[], sources: { posting: string; resume: string | null; names: string }) {
   const posting = normalizeText(sources.posting);
   const resume = sources.resume ? normalizeText(sources.resume) : null;
@@ -82,13 +76,6 @@ export class InterviewQuestionGenerationService {
   private keywordService = new JobKeywordService();
   private candidateSource = new CandidateSourceService();
 
-  /*
-    Generated questions become the user's own (userId set), so they are
-    editable and deletable like any question the user wrote, and are pinned to
-    the application so the practice runner picks them up unchanged. A question
-    that matches one the user can already see — seeded or their own — is pinned
-    rather than duplicated.
-  */
   async generateForApplication(userId: string, applicationId: string) {
     await assertPro(userId, PRO_FEATURES.AI_INTERVIEW_QUESTIONS);
 
@@ -100,7 +87,6 @@ export class InterviewQuestionGenerationService {
       throw new BadRequestError("Paste the job description into this application first. The questions are written from it.");
     }
 
-    // Optional: without any experience on file the questions come from the posting alone.
     const candidate = await this.candidateSource.find(userId, application.resumeId ?? null);
     const visible = await this.prepRepo.findQuestions(userId);
     const pinned = await this.prepRepo.findQuestions(userId, { applicationId });

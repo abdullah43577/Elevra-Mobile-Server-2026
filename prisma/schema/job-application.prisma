@@ -28,38 +28,25 @@ model JobApplication {
   appliedAt       DateTime?
   notes           String?
 
-  // The posting itself, pasted in. Kept beside the application because the ad
-  // is usually deleted or rewritten by the time an interview comes round, and
-  // it is the one thing you want in front of you while preparing.
   jobDescription  String?
 
-  // AI-extracted screening keywords, cached because extraction costs a model
-  // call. The hash is of the jobDescription they came from: a mismatch means
-  // the posting was edited and the keywords are stale.
+  // Hash of the jobDescription the keywords came from; a mismatch means they are stale.
   jobKeywords     Json?
   jobKeywordsHash String?
 
   isArchived      Boolean           @default(false)
 
-  // Last time a follow-up reminder fired for this application. Guards the
-  // daily sweep against nagging the same row every single day.
   lastReminderAt  DateTime?
 
-  // When the status last actually changed. Reminder rules must key off this,
-  // never updatedAt — @updatedAt bumps on every write, including the sweep's
-  // own markReminded, so updatedAt silently resets the idle clock.
+  // Reminder rules key off this, never updatedAt: @updatedAt also bumps on the sweep's own writes.
   statusChangedAt DateTime          @default(now())
 
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // The resume version actually sent. SetNull so deleting a resume does not
-  // erase the application history it was attached to.
   resumeId String?
   resume   Resume? @relation(fields: [resumeId], references: [id], onDelete: SetNull)
 
-  // The cover letter actually sent. SetNull for the same reason as resumeId:
-  // deleting a letter must not erase the application it was attached to.
   coverLetterId String?
   coverLetter   CoverLetter? @relation(fields: [coverLetterId], references: [id], onDelete: SetNull)
 

@@ -84,15 +84,8 @@ export class NotificationService {
     }
   }
 
-  /*
-    The entry point every other service uses. Persists the notification, then
-    pushes it as a courtesy.
-
-    Deliberately swallows its own errors: notifying is always a side effect of
-    some other action (a status change, an export), and that action must not
-    fail because a device token went stale or Expo was unreachable. Callers
-    therefore do not need to await or guard this.
-  */
+  // Swallows its own errors: notifying is a side effect, and the action that triggered it must not
+  // fail because a device token went stale or Expo was unreachable.
   async notify(input: NotifyInput) {
     try {
       const notification = await this.notificationRepo.create({
@@ -106,7 +99,6 @@ export class NotificationService {
 
       const user = await this.notificationRepo.findDeviceToken(input.userId);
 
-      // Respect the user's own preference; settings may not exist yet.
       const pushEnabled = user?.settings?.notifications ?? true;
 
       if (pushEnabled && user?.deviceToken) {

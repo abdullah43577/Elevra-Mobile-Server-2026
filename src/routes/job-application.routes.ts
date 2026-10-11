@@ -6,11 +6,7 @@ import { validateAccessToken } from "../lib/validate-token";
 const router = Router();
 const jobApplicationController = new JobApplicationController();
 
-/*
-  The parse route makes the server fetch a url the user chose, and a page with
-  structured job data costs no AI quota — so without its own cap it would let
-  anyone use the server to hit other sites at will.
-*/
+// Own limit: parse makes the server fetch a user-chosen url, often with no AI quota cost.
 const parseLimiter = rateLimit({
   windowSeconds: 10 * 60,
   max: 30,

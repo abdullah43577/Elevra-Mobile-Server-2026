@@ -1,11 +1,7 @@
 import type { Prisma } from "../generated/prisma/client";
 import { prisma } from "../lib/prisma";
 
-/*
-  The template's theme must be nested, not just the template — the letter's
-  preview and its exported PDF both read template.theme for colour, font and
-  spacing. Same trap as resumeInclude.
-*/
+// Theme must be nested: the preview and the PDF export both read template.theme.
 const coverLetterInclude = {
   template: { include: { theme: true } },
 } satisfies Prisma.CoverLetterInclude;

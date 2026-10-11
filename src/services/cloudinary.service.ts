@@ -35,12 +35,7 @@ export class CloudinaryService {
     }
   }
 
-  /*
-    Best-effort bulk destroy, for account deletion. Unlike deleteFile it touches
-    no database row — the rows are about to be cascaded away — and it never
-    throws: a Cloudinary outage must not block someone from deleting their
-    account, which is a right rather than a request.
-  */
+  // Never throws: a Cloudinary outage must not block someone from deleting their account.
   async destroyMany(publicIds: string[], resource_type: "avatar" | "auto") {
     await Promise.all(
       publicIds.map(publicId =>

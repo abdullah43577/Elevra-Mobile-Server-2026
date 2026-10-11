@@ -62,7 +62,6 @@ const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", GBP: "£", EUR: "�
 
 const clip = (value: string, max: number) => value.slice(0, max).trim();
 
-// Whitespace-insensitive search for a phrase the model quoted from the page.
 const indexOfPhrase = function (haystack: string, phrase: string, from = 0) {
   const words = phrase.trim().split(/\s+/).map(word => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   if (words.length < 3) return null;
@@ -70,12 +69,6 @@ const indexOfPhrase = function (haystack: string, phrase: string, from = 0) {
   return match ? { start: from + match.index, end: from + match.index + match[0].length } : null;
 };
 
-/*
-  The description is cut from the page's own text between two short phrases the
-  model quoted, rather than copied out by the model: verbatim by construction,
-  and a few dozen output tokens instead of thousands. Without both phrases, the
-  whole text is the description.
-*/
 const sliceDescription = function (source: string, start?: string | null, end?: string | null) {
   const from = start ? indexOfPhrase(source, start) : null;
   const to = end && from ? indexOfPhrase(source, end, from.start) : null;
@@ -83,12 +76,6 @@ const sliceDescription = function (source: string, start?: string | null, end?: 
   return slice.trim().slice(0, MAX_TEXT_CHARS);
 };
 
-/*
-  Every field the model returns must be visible in the posting: names and the
-  location are matched in the text, salary figures (or their "120k" form) must
-  appear, the currency needs its code or symbol, and a work arrangement needs
-  its own word. Anything that fails is left blank for the user to fill.
-*/
 const groundDraft = function (parsed: z.infer<typeof parsedSchema>, source: string): JobDraft {
   const normalized = normalizeText(source);
   const numbers = numbersIn(source);
@@ -133,13 +120,6 @@ const fromStructured = function (job: StructuredJob): JobDraft {
 };
 
 export class JobImportService {
-  /*
-    Free (client CLAUDE.md §31): getting applications in is what makes the paid
-    features worth having. A page carrying schema.org JobPosting data costs no
-    model call and no quota; anything else uses one quota unit.
-
-    Returns a draft for the new-application form. Nothing is saved.
-  */
   async parse(userId: string, input: ParseJobInput) {
     let source: string;
     let url: URL | null = null;
@@ -157,7 +137,6 @@ export class JobImportService {
         }
         source = htmlToText(page.html);
       } catch (error) {
-        // LinkedIn serves job pages only to signed-in members; say so plainly.
         if (error instanceof FetchBlockedError && /(^|\.)linkedin\.com$/i.test(new URL(input.url).hostname)) {
           throw new FetchBlockedError("LinkedIn only shows job pages to signed-in members, so we can't read it. Copy the job description from LinkedIn and paste it here instead.");
         }
@@ -180,7 +159,7 @@ export class JobImportService {
       reasoningEffort: "low",
     });
 
-    // Structured fields, when a page had some but not enough to skip the model, win.
+    // Structured fields win over the model's when a page had some.
     const draft: JobDraft = {
       ...groundDraft(result, source),
       ...structured,

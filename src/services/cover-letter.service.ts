@@ -39,8 +39,6 @@ export class CoverLetterService {
     const coverLetter = await this.coverLetterRepo.create({
       userId,
       templateId: data.templateId,
-      // Titled after the application it is for, so a list of letters reads as
-      // a list of applications rather than "Cover Letter 1, Cover Letter 2".
       title: data.title?.trim() || `${data.company} — ${data.role}`,
       company: data.company.trim(),
       role: data.role.trim(),
@@ -82,11 +80,6 @@ export class CoverLetterService {
     return this.coverLetterRepo.delete(coverLetterId, userId);
   }
 
-  /*
-    Records an export; the PDF itself is built on-device, exactly as for
-    resumes. Gated here in the service so a second route pointed at this method
-    cannot bypass the check.
-  */
   async exportCoverLetter(coverLetterId: string, userId: string) {
 
     const coverLetter = await this.getCoverLetterById(coverLetterId, userId);

@@ -22,7 +22,6 @@ export class NoteService {
   private tagRepo = new TagRepository();
 
   async getNotes(userId: string, options?: { folderId?: string; search?: string }) {
-    // Build options with conditional spreading to avoid undefined values
     const repoOptions: { folderId?: string; search?: string } = {
       ...(options?.folderId && { folderId: options.folderId }),
       ...(options?.search && { search: options.search }),
@@ -57,20 +56,17 @@ export class NoteService {
   }
 
   async createNote(data: { userId: string; title: string; content?: string; folderId?: string; tagNames?: string[] }) {
-    // Validate folder exists if provided
     if (data.folderId) {
       const folder = await this.folderRepo.findById(data.folderId, data.userId);
       if (!folder) throw new NotFoundError("Folder not found");
     }
 
-    // Process tags - upsert if they don't exist
     let tagIds: string[] = [];
     if (data.tagNames?.length) {
       const tags = await Promise.all(data.tagNames.map(name => this.tagRepo.upsert(data.userId, name.trim())));
       tagIds = tags.map(tag => tag.id);
     }
 
-    // Build repository data with conditional spreading
     const repoData: {
       userId: string;
       title: string;
@@ -99,10 +95,8 @@ export class NoteService {
       isPinned?: boolean;
     },
   ) {
-    // Verify note exists
     await this.getNoteById(noteId, userId);
 
-    // Validate folder if provided
     if (data.folderId) {
       const folder = await this.folderRepo.findById(data.folderId, userId);
       if (!folder) {
@@ -114,7 +108,6 @@ export class NoteService {
   }
 
   async deleteNote(noteId: string, userId: string) {
-    // Verify note exists
     await this.getNoteById(noteId, userId);
     return this.noteRepo.delete(noteId, userId);
   }
@@ -140,11 +133,6 @@ export class NoteService {
     await assertAiQuota(userId);
   }
 
-  /*
-    Takes userId purely so the entitlement and quota checks live here rather
-    than in the controller. A controller-only guard is bypassed the moment a
-    second route points at this method.
-  */
   async streamSummary(userId: string, text: string, onChunk: (chunk: string) => void): Promise<string> {
     await assertPro(userId, PRO_FEATURES.AI_NOTE_SUMMARY);
     await consumeAiQuota(userId);
@@ -161,9 +149,6 @@ export class NoteService {
     return summary.trim();
   }
 
-  /**
-   * Save summary to database
-   */
   async saveSummary(noteId: string, userId: string, summary: string) {
     await this.noteRepo.updateSummary(noteId, userId, summary);
   }

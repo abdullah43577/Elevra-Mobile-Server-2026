@@ -20,11 +20,8 @@ const pdfMulter = multer({
   },
 });
 
-/*
-  Multer reports a rejected file through Express's error pipeline, which skips
-  the controller's try/catch — and no error middleware is registered (§5), so a
-  too-large file would come back as an HTML 500. Route it through handleErrors.
-*/
+// Multer rejects through Express's error pipeline, which skips the controller's try/catch
+// and has no error middleware, so route it through handleErrors.
 export const acceptPdf = function (field: string) {
   const middleware = pdfMulter.single(field);
   return function (req: Request, res: Response, next: NextFunction) {

@@ -5,7 +5,6 @@ import { validateAccessToken } from "../../lib/validate-token";
 const router = Router();
 const tagController = new TagController();
 
-// All tag routes require authentication
 router.use(validateAccessToken);
 
 router.get("/", tagController.getTags.bind(tagController));

@@ -4,11 +4,6 @@ import { NotificationService } from "./notification.service";
 
 const DAY = 1000 * 60 * 60 * 24;
 
-/*
-  How long an application sits untouched in a given status before it is worth a
-  nudge, and what that nudge says. Copy lives here rather than at the call site
-  so every reminder reads consistently.
-*/
 const REMINDER_RULES = [
   {
     status: "SAVED" as ApplicationStatus,
@@ -33,19 +28,12 @@ const REMINDER_RULES = [
   },
 ];
 
-// Never nudge the same application more than once a week, whatever the rule.
 const COOLDOWN_DAYS = 7;
 
 export class ReminderService {
   private applicationRepo = new JobApplicationRepository();
   private notificationService = new NotificationService();
 
-  /*
-    Sweeps applications that have gone quiet and notifies their owners.
-
-    Runs for every user by default (the scheduled job). Pass a userId to run it
-    for a single account, which is what the on-demand endpoint uses.
-  */
   async sweep(userId?: string) {
     const now = new Date();
     const cooldownBefore = new Date(now.getTime() - COOLDOWN_DAYS * DAY);

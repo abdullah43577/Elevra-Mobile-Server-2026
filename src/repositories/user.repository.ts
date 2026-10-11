@@ -19,11 +19,7 @@ export class UserRepository {
     return prisma.user.create({ data: { ...data, authProvider: "PASSWORD" } });
   }
 
-  /*
-    Separate from createUser because that one pins authProvider to PASSWORD.
-    Widening it to read the flag from `data` would let any future caller create
-    a GOOGLE account through the password path by passing one extra key.
-  */
+  // Separate from createUser, which pins PASSWORD, so no caller can create an OAuth account through it.
   async createSocialUser(data: Prisma.UserCreateInput) {
     return prisma.user.create({ data });
   }

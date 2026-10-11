@@ -16,8 +16,6 @@ export const createJobApplicationSchema = z.object({
   status: applicationStatus.optional(),
   appliedAt: z.iso.datetime().optional(),
   notes: z.string().max(5000).optional(),
-  // Roomier than notes: a pasted posting routinely runs past 5000 characters,
-  // and truncating one silently would lose the requirements at the bottom.
   jobDescription: z.string().max(20000).optional(),
   resumeId: z.string().optional(),
   coverLetterId: z.string().optional(),
@@ -68,13 +66,11 @@ export type MessageKind = z.infer<typeof messageKindSchema>;
 export const draftMessageSchema = z.object({
   kind: messageKindSchema,
   interviewerName: z.string().trim().min(1).max(80).optional(),
-  // Anything the user wants mentioned — what was discussed, a figure to ask about.
   points: z.string().trim().min(1).max(1000).optional(),
 });
 
 export type DraftMessageInput = z.infer<typeof draftMessageSchema>;
 
-// Exactly one of a link or pasted posting text.
 export const parseJobSchema = z
   .object({
     url: z.string().trim().min(1).max(2000).optional(),

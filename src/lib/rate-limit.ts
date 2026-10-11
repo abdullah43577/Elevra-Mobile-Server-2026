@@ -3,30 +3,16 @@ import type { IUserRequest } from "../interface";
 import { redis } from "./redis-connection";
 
 interface RateLimitOptions {
-  /** Window length in seconds. */
   windowSeconds: number;
-  /** Requests allowed per window. */
   max: number;
-  /** Namespaces the counter so limits do not collide across routes. */
   keyPrefix: string;
-  /**
-   * Extra identity beyond the IP — usually the submitted email. Without it an
-   * attacker on one IP is limited, but an attacker rotating IPs against one
-   * account is not.
-   */
+  // Without a per-account identity, an attacker rotating IPs against one account is never limited.
   identify?: (req: IUserRequest) => string | undefined;
   message?: string;
 }
 
-/*
-  Redis-backed so the limit holds across instances; an in-memory counter would
-  reset on every deploy and be trivially bypassed once the API scales past one
-  process.
-
-  Fails OPEN. If Redis is unreachable the request is allowed through — a cache
-  outage locking every user out of signing in is a worse failure than briefly
-  losing rate limiting, and the Redis health check already shouts about it.
-*/
+// Fails open: a Redis outage locking everyone out of sign-in is worse than briefly
+// losing rate limiting.
 export const rateLimit = function (options: RateLimitOptions) {
   const { windowSeconds, max, keyPrefix, identify, message } = options;
 
@@ -62,14 +48,8 @@ export const rateLimit = function (options: RateLimitOptions) {
 
 const ATTEMPT_LIMIT = 5;
 
-/*
-  Counts wrong OTP guesses for one user and reports when the allowance is spent.
-
-  Separate from rateLimit: that caps request volume, this caps guesses against a
-  specific code. A six-digit OTP is only 1,000,000 possibilities, so without
-  this the reset flow is a viable path to account takeover — the request limiter
-  alone just slows it down.
-*/
+// Separate from rateLimit: a six-digit OTP is only a million guesses, so request
+// limiting alone slows account takeover rather than preventing it.
 export const otpAttempts = {
   key: (scope: string, userId: string) => `otp-attempts:${scope}:${userId}`,
 

@@ -5,21 +5,12 @@ import { NotFoundError } from "../lib/errors";
 export class CareerProfileService {
   private careerProfileRepo = new CareerProfileRepository();
 
-  /*
-    Returns null rather than throwing when the user has not built one yet.
-    "No profile" is the normal first state of every account, and a 404 here
-    would make the client toast an error on the first screen it opens.
-  */
+  // null, not a 404: no profile is every account's first state, and a 404 would make the client toast.
   async getProfile(userId: string) {
     return this.careerProfileRepo.findByUser(userId);
   }
 
-  /*
-    A section is only written when the caller actually sent it, so saving one
-    step of the editor cannot wipe the sections it did not touch. Sending an
-    empty array is how a section gets cleared — hence `!== undefined` and not a
-    truthiness check.
-  */
+  // `!== undefined`, not truthiness: an empty array is how a section gets cleared.
   async saveProfile(userId: string, data: ResumeDataInput) {
     const writeData: CareerProfileWriteData = {
       ...(data.personalInfo !== undefined && { personalInfo: data.personalInfo }),

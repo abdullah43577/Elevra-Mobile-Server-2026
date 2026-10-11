@@ -27,7 +27,6 @@ export class TemplateRepository {
     });
   }
 
-  // Admin methods (for seeding)
   async create(data: { name: string; description?: string; category: string; layoutKey: string; themeId: string; defaultData: any; sections?: any; styles?: any }) {
     const { name, description, category, layoutKey, themeId, defaultData, sections, styles } = data;
 

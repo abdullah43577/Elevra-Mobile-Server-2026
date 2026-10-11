@@ -1,7 +1,7 @@
 model Folder {
   id        String   @id @default(cuid())
   name      String
-  color     String?  // For UI organization
+  color     String?
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
@@ -31,7 +31,7 @@ model Tag {
 model Note {
   id          String   @id @default(cuid())
   title       String
-  content     String?  // Rich text or markdown
+  content     String?
   isArchived  Boolean  @default(false)
   isPinned    Boolean  @default(false)
   userId      String
@@ -43,7 +43,6 @@ model Note {
   tags        NoteTag[]
   applications ApplicationNote[]
 
-  // AI-generated summary (stored after processing)
   aiSummary   String?
   summaryGeneratedAt DateTime?
   

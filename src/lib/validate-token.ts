@@ -9,12 +9,6 @@ import { UnauthorizedError } from "./errors";
 const validateAccessToken = function (req: IUserRequest, res: Response, next: NextFunction) {
   let token = req.headers["authorization"]?.split(" ")[1];
 
-  // If token is not found in headers, try to find it in cookies
-  // if (!token && req.cookies) {
-  //   token = req.cookies["session_id"];
-  // }
-
-  // If token is not found in headers, try to find it in query
   if (!token && req.query) {
     token = req.query.token as string;
   }
@@ -24,7 +18,6 @@ const validateAccessToken = function (req: IUserRequest, res: Response, next: Ne
   try {
     const { id, role } = jwt.verify(token, ACCESS_TOKEN_SECRET as Secret) as CustomJwtPayload;
     req.userId = id;
-    // req.role = role;
     next();
   } catch (error) {
     handleErrors({ res, error });
@@ -35,16 +28,10 @@ const validateRefreshToken = function (req: IUserRequest, res: Response, next: N
   try {
     let refreshToken = req.body.refreshToken;
 
-    // if refreshToken is not sent in the body
-    // if (!refreshToken) {
-    //   refreshToken = req.cookies["session_id_ref"];
-    // }
-
     if (!refreshToken) throw new UnauthorizedError("Access Denied, Refresh token not provided!");
 
     const { id, role } = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET as Secret) as CustomJwtPayload;
     req.userId = id;
-    // req.role = role;
     next();
   } catch (error) {
     handleErrors({ res, error });

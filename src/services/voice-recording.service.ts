@@ -66,7 +66,6 @@ export class VoiceRecordingService {
       isTranscribed?: boolean;
     },
   ) {
-    // Verify recording exists
     await this.getRecordingById(recordingId, userId);
     return this.voiceRepo.update(recordingId, userId, data);
   }
@@ -74,7 +73,6 @@ export class VoiceRecordingService {
   async deleteRecording(recordingId: string, userId: string) {
     const recording = await this.getRecordingById(recordingId, userId);
 
-    // Delete from Cloudinary if publicId exists
     if (recording.publicId) {
       try {
         await this.cloudinaryService.deleteFile({
@@ -91,13 +89,6 @@ export class VoiceRecordingService {
     return this.voiceRepo.delete(recordingId, userId);
   }
 
-  /*
-    Pro (the existing VOICE_TRANSCRIPTION key). A recording is transcribed once:
-    asking again returns what is stored, with no model call and no quota. No
-    filler-preserving prompt here, unlike answer coaching — a memo should read
-    cleanly. The notification is what lets someone leave a long recording to
-    transcribe, as setup's notifications step promises.
-  */
   async transcribeRecording(recordingId: string, userId: string) {
     await assertPro(userId, PRO_FEATURES.VOICE_TRANSCRIPTION);
 

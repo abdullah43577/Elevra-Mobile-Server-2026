@@ -18,18 +18,14 @@ const withDeadline = function <T>(work: Promise<T>): Promise<T> {
   ]);
 };
 
-/*
-  Fails CLOSED, unlike rateLimit. Unmetered AI calls during a Redis outage risk
-  exhausting or getting the provider keys banned for every user; a few minutes
-  without AI is the cheaper failure.
-*/
+// Fails closed, unlike rateLimit: unmetered AI calls during a Redis outage could
+// exhaust or get the provider keys banned for every user.
 const failClosed = function (error: unknown): never {
   if (error instanceof AiQuotaExceededError) throw error;
   console.error("[ai-quota] Redis unavailable, refusing AI call:", error);
   throw new AiUnavailableError();
 };
 
-// Read-only, for refusing before a stream opens so the status code is honest.
 export const assertAiQuota = async function (userId: string) {
   try {
     const used = Number(await withDeadline(redis.get(quotaKey(userId)))) || 0;
@@ -39,8 +35,6 @@ export const assertAiQuota = async function (userId: string) {
   }
 };
 
-// Counts one AI call. Lives beside assertPro in the service layer, so no route
-// can reach a model without passing through it.
 export const consumeAiQuota = async function (userId: string) {
   try {
     const key = quotaKey(userId);

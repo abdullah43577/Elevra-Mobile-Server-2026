@@ -9,11 +9,7 @@ router.use(validateAccessToken);
 
 router.get("/", subscriptionController.getSubscription.bind(subscriptionController));
 
-/*
-  Called by the client straight after a purchase or a restore. It carries no
-  body on purpose: the client asks us to go and look, it never tells us what it
-  bought.
-*/
+// No body on purpose: the client asks us to look, never tells us what it bought.
 router.post("/sync", subscriptionController.syncSubscription.bind(subscriptionController));
 
 export { router as subscriptionRouter };

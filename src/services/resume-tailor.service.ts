@@ -63,9 +63,6 @@ const sectionsForWrite = function (data: ResumeDataInput) {
 
 const MIN_CONTENT_OVERLAP = 0.35;
 
-// Catches a rewrite that drifted off its source — in testing, a model replaced a
-// role's description with that role's own title and dates, which passes every
-// other check. Measured as how much of the original survives into the rewrite.
 const preservesContent = function (candidate: string[], original: string[]) {
   if (contentWords(original).size < 3) return true;
   return groundedShare(original, contentWords(candidate)) >= MIN_CONTENT_OVERLAP;
@@ -75,21 +72,8 @@ const sameText = function (a: string[] | undefined, b: string[] | undefined) {
   return JSON.stringify(a ?? []) === JSON.stringify(b ?? []);
 };
 
-/*
-  The no-invention rule, enforced here rather than trusted to the prompt. Only
-  text fields are taken from the model; company, position, dates and every
-  other section are copied from the base. A rewritten field is discarded, and
-  the original kept, when it:
-    - contains a number its source entry does not,
-    - uses a job keyword the base resume lacks without verified evidence — the
-      model must quote existing resume text for every keyword it introduces,
-      and the quote has to actually be there,
-    - returns a different number of bullets (a dropped bullet is lost content), or
-    - keeps too little of the original's wording to still be the same content.
-
-  The change list is built here from what actually changed. In testing, a model
-  asked to describe its own edits claimed keyword additions it had not made.
-*/
+// The no-invention rule is enforced here, not trusted to the prompt: a rewritten field that
+// fails any check is discarded and the original kept.
 export const applyTailoring = function (base: ResumeDataInput, output: TailoredOutput, keywords: JobKeyword[]) {
   const guard = buildClaimGuard(resumeText(base), keywords, output.newTerms);
   const isSafe = function (texts: string[], source: string) {
@@ -203,7 +187,6 @@ export class ResumeTailorService {
 
     const base = await this.resolveBase(userId, baseResumeId);
 
-    // One quota unit per tailoring, though it can take two model calls.
     await consumeAiQuota(userId);
 
     const keywords = await this.keywordService.ensure(application, userId);
@@ -268,8 +251,6 @@ export class ResumeTailorService {
     return { resume, report };
   }
 
-  // Free and model-free: scores the attached resume against keywords a
-  // tailoring already extracted. Null when there is nothing current to score.
   async getMatch(applicationId: string, userId: string) {
     const application = await this.applicationRepo.findById(applicationId, userId);
     if (!application) throw new NotFoundError("Application not found");

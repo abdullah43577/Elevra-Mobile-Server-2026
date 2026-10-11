@@ -15,7 +15,6 @@ export class TagService {
   }
 
   async createTag(userId: string, name: string) {
-    // Check if tag already exists
     const existing = await this.tagRepo.findByName(userId, name.trim());
     if (existing) throw new BadRequestError("Tag already exists");
 

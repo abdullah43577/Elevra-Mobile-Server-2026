@@ -2,17 +2,7 @@ import { prisma } from "../lib/prisma";
 
 const matches = (term: string) => ({ contains: term, mode: "insensitive" as const });
 
-/*
-  Every method selects the narrowest set of columns the result row can be built
-  from. Search runs six queries at once on every debounced keystroke, so pulling
-  full rows — a resume's eight Json sections, a letter's whole body — would move
-  megabytes to render a one-line result.
-
-  Archived notes and archived applications are deliberately included. Their list
-  screens exclude them, which makes search the only way to reach one without
-  first knowing where it was filed; the service marks them so the result does
-  not look like a live row.
-*/
+// Archived notes and applications are included on purpose: their lists hide them.
 export class SearchRepository {
   async searchNotes(userId: string, term: string, limit: number) {
     return prisma.note.findMany({
@@ -51,13 +41,8 @@ export class SearchRepository {
     });
   }
 
-  /*
-    Title only. The sections a resume is actually made of live in Json columns,
-    and reaching them means casting to text in raw SQL — which then matches the
-    *keys* as well as the values, so searching "company", "title", "location" or
-    "description" would return every resume the user owns. A false positive on
-    every generic term is worse than not searching the body at all.
-  */
+  // Title only: casting the Json sections to text would match their keys ("company", "title")
+  // and return every resume.
   async searchResumes(userId: string, term: string, limit: number) {
     return prisma.resume.findMany({
       where: { userId, title: matches(term) },
@@ -123,13 +108,7 @@ export class SearchRepository {
     });
   }
 
-  /*
-    Scoped to questions the user wrote or has answered, never the whole seeded
-    catalogue. Global search finds *your* material; a seeded question you have
-    never opened is not yours yet, and matching all 50 on a common word like
-    "team" would bury the notes and applications the user was looking for. The
-    interview-prep screen has its own search for browsing the bank.
-  */
+  // Only questions the user wrote or answered, never the whole seeded catalogue.
   async searchInterviewQuestions(userId: string, term: string, limit: number) {
     return prisma.interviewQuestion.findMany({
       where: {

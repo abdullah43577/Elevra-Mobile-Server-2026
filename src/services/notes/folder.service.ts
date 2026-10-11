@@ -24,13 +24,11 @@ export class FolderService {
 
   async createFolder(userId: string, name: string, color?: string) {
     try {
-      // Check for duplicate folder name
       const existing = await this.folderRepo.findManyByUser(userId);
       if (existing.some(f => f.name.toLowerCase() === name.toLowerCase())) {
         throw new ConflictError("Folder with this name already exists");
       }
 
-      // Build create data with conditional spreading
       const folderData: {
         userId: string;
         name: string;
@@ -56,10 +54,8 @@ export class FolderService {
     },
   ) {
     try {
-      // Verify folder exists
       await this.getFolderById(folderId, userId);
 
-      // Check for duplicate folder name if name is being updated
       if (data.name) {
         const existing = await this.folderRepo.findManyByUser(userId);
         const duplicate = existing.some(f => f.id !== folderId && f.name.toLowerCase() === data.name!.toLowerCase());
@@ -68,7 +64,6 @@ export class FolderService {
         }
       }
 
-      // Build update data with conditional spreading
       const updateData: {
         name?: string;
         color?: string;
@@ -85,10 +80,8 @@ export class FolderService {
 
   async deleteFolder(folderId: string, userId: string) {
     try {
-      // Verify folder exists
       await this.getFolderById(folderId, userId);
 
-      // Check if folder has notes
       const folder = await this.folderRepo.findById(folderId, userId);
       if (folder && folder._count?.notes > 0) {
         throw new ConflictError("Cannot delete folder with notes. Move or delete notes first.");

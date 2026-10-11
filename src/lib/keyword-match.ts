@@ -12,12 +12,7 @@ export interface KeywordCoverage {
   missing: JobKeyword[];
 }
 
-/*
-  Lower-cases and reduces everything but letters, digits, "+" and "#" to single
-  spaces, padded at both ends — so a term matches only as whole words
-  (" sql " is not found in " nosql "), and "C++", "C#" and "Node.js"
-  normalise the same way on both sides.
-*/
+// Padded with spaces so a term matches only as whole words (" sql " is not in " nosql ").
 export const normalizeText = function (text: string) {
   return ` ${text.toLowerCase().replace(/[^\p{L}\p{N}+#]+/gu, " ").trim()} `;
 };
@@ -78,8 +73,6 @@ const NUMBER_WORDS: Record<string, string> = {
   eleven: "11", twelve: "12", fifteen: "15", twenty: "20", thirty: "30", forty: "40", fifty: "50", hundred: "100",
 };
 
-// Written-out numbers count too: in testing, a model wrote "three million"
-// where the digits would have been caught.
 export const numbersIn = function (text: string) {
   const digits = (text.match(/\d+(?:[.,]\d+)*/g) ?? []).map(number => number.replace(/,/g, ""));
   const words = (text.toLowerCase().match(/[a-z]+/g) ?? []).flatMap(word => NUMBER_WORDS[word] ?? []);
@@ -91,8 +84,6 @@ const STOPWORDS = new Set([
   "their", "which", "also", "across", "while", "through", "within", "about", "when", "where", "your", "will",
 ]);
 
-// A crude plural strip, applied to both sides of every comparison, so
-// "service" and "services" count as the same word.
 const stem = function (word: string) {
   return word.length > 4 && word.endsWith("s") ? word.slice(0, -1) : word;
 };
@@ -106,7 +97,6 @@ export const contentWords = function (texts: string[], ignored: ReadonlySet<stri
   );
 };
 
-// Share of the candidate text's content words that also appear in the source.
 export const groundedShare = function (candidate: string[], source: ReadonlySet<string>, ignored?: ReadonlySet<string>) {
   const words = contentWords(candidate, ignored);
   if (words.size === 0) return 1;
@@ -121,12 +111,6 @@ export interface EvidencedTerm {
   evidence: string;
 }
 
-/*
-  Decides whether model-written text claims only what the candidate's own
-  material supports. A job keyword the source lacks is allowed only when the
-  model quoted source text as evidence for it and the quote really is there;
-  a number is allowed only when the given number source contains it.
-*/
 export const buildClaimGuard = function (sourceText: string, keywords: JobKeyword[], newTerms: EvidencedTerm[] = []) {
   const source = normalizeText(sourceText);
 

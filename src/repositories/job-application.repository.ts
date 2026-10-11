@@ -103,8 +103,6 @@ export class JobApplicationRepository {
     });
   }
 
-  // Transcribed voice memos linked to an application — a post-interview debrief
-  // is what a thank-you note should draw on.
   async findLinkedTranscripts(applicationId: string, userId: string) {
     const links = await prisma.applicationRecording.findMany({
       where: { applicationId, application: { userId }, recording: { isTranscribed: true } },
@@ -155,12 +153,7 @@ export class JobApplicationRepository {
     });
   }
 
-  /*
-    The reminder sweep is a system job, so this is the one method in this
-    repository that is NOT scoped to a single user. Everything else here takes
-    a userId and must keep doing so. Callers pass a userId only when running the
-    sweep on demand for one account (testing, or a manual "check now").
-  */
+  // The one method here not scoped to a single user: the reminder sweep is a system job.
   async findDueForReminder(rules: { status: ApplicationStatus; idleSince: Date }[], cooldownBefore: Date, userId?: string) {
     return prisma.jobApplication.findMany({
       where: {
@@ -194,12 +187,6 @@ export class JobApplicationRepository {
     });
   }
 
-  /*
-    Per application: how many questions are pinned, and how many of those the
-    user has rehearsed at least once. Feeds each row's next step on the client.
-    One query for the whole list rather than an include per row, because the
-    answer has to be filtered to this user.
-  */
   async findPrepProgress(applicationIds: string[], userId: string) {
     const pins = await prisma.applicationQuestion.findMany({
       where: { applicationId: { in: applicationIds } },

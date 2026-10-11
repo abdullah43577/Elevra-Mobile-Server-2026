@@ -9,8 +9,6 @@ export class ResumeController {
   private resumeService = new ResumeService();
   private templateService = new TemplateService();
 
-  // ==================== Templates ====================
-
   async getTemplates(req: IUserRequest, res: Response) {
     try {
       const { category, search } = getTemplatesQuerySchema.parse(req.query);
@@ -42,8 +40,6 @@ export class ResumeController {
       handleErrors({ res, error });
     }
   }
-
-  // ==================== Resumes ====================
 
   async getResumes(req: IUserRequest, res: Response) {
     try {
@@ -114,11 +110,7 @@ export class ResumeController {
       const { id } = req.params;
       const body = updateResumeSchema.parse(req.body);
 
-      /*
-        Spread each section conditionally rather than passing the parsed body
-        through. exactOptionalPropertyTypes rejects an explicit `undefined`, and
-        a blanket spread carries one for every key the client left out.
-      */
+      // Conditional spreads: exactOptionalPropertyTypes rejects the undefined a blanket spread carries.
       const resume = await this.resumeService.updateResume(id as string, userId!, {
         ...(body.title && { title: body.title }),
         ...(body.templateId && { templateId: body.templateId }),

@@ -7,13 +7,6 @@ export interface PushMessage {
   data?: Record<string, unknown>;
 }
 
-/*
-  Expo's push API is a plain HTTP endpoint, so there is no SDK dependency here.
-
-  Delivery is deliberately best-effort: a dead or stale device token must never
-  fail the request that triggered the notification. The Notification row is the
-  source of truth; the push is a courtesy on top of it.
-*/
 export class PushService {
   async send(messages: PushMessage[]) {
     const valid = messages.filter(message => this.isExpoToken(message.to));

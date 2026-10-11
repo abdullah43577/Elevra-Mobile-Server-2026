@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { resumeDataSchema } from "./resume-data";
 
-// ============================================
-// Template Schemas
-// ============================================
-
 export const duplicateResumeSchema = z.object({
   title: z.string().min(1).max(100).optional(),
 });
@@ -13,10 +9,6 @@ export const getTemplatesQuerySchema = z.object({
   category: z.string().optional(),
   search: z.string().optional(),
 });
-
-// ============================================
-// Resume Schemas
-// ============================================
 
 export const createResumeSchema = resumeDataSchema.extend({
   title: z.string().min(1).max(100),
