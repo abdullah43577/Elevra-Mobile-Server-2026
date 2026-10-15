@@ -1,5 +1,6 @@
 import type { SubscriptionTier } from "../generated/prisma/client";
 import { PaymentRequiredError } from "./errors";
+import { getEnv } from "./get-env";
 import { prisma } from "./prisma";
 
 export const PRO_FEATURES = {
@@ -14,7 +15,14 @@ export const PRO_FEATURES = {
 
 export type ProFeature = (typeof PRO_FEATURES)[keyof typeof PRO_FEATURES];
 
+// Pre-launch tester switch (client CLAUDE.md §21). Unset it before real payments go live.
+export const isProForEveryone = function () {
+  return getEnv("PRO_FOR_EVERYONE") === "true";
+};
+
 export const getUserTier = async function (userId: string): Promise<SubscriptionTier> {
+  if (isProForEveryone()) return "PRO";
+
   const settings = await prisma.userSettings.findUnique({
     where: { userId },
     select: { subscriptionTier: true },

@@ -1,6 +1,7 @@
 import { BadRequestError, EmailNotVerifiedError, NotFoundError } from "../lib/errors";
 import { generateAccessToken, generateRefreshToken } from "../lib/generate-token";
 import { getEnv } from "../lib/get-env";
+import { isProForEveryone } from "../lib/entitlements";
 import { comparePassword, hashPassword } from "../lib/hash-password";
 import { UserRepository } from "../repositories/user.repository";
 import type { SignInFormValues, SignUpFormValues } from "../schemas/auth";
@@ -330,7 +331,11 @@ export class AuthService {
 
       const { password, ...rest } = user;
 
-      return rest;
+      if (!isProForEveryone()) return rest;
+
+      const settings = await this.userRepo.upsertUserSettings(userId, {});
+
+      return { ...rest, settings: { ...settings, subscriptionTier: "PRO" as const } };
     } catch (error) {
       throw error;
     }
