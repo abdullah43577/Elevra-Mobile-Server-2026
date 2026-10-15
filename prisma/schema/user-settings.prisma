@@ -12,8 +12,9 @@ enum Theme {
 model UserSettings {
   id              String  @id @default(cuid())
   userId          String  @unique
-  user            User    @relation(fields: [userId], references: [id])
+  user            User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   theme           Theme  @default(SYSTEM)
   notifications   Boolean @default(true)
   subscriptionTier SubscriptionTier @default(FREE)
+  proGrantedAt    DateTime?
 }

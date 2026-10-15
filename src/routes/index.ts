@@ -15,6 +15,7 @@ import { interviewPrepRouter } from "./interview-prep.routes";
 import { searchRouter } from "./search.routes";
 import { subscriptionRouter } from "./subscription.routes";
 import { maintenanceRouter } from "./maintenance.routes";
+import { adminRouter } from "./admin.routes";
 
 export const registerRoutes = (app: Application) => {
   app.use("/v1/auth", authRouter);
@@ -32,6 +33,7 @@ export const registerRoutes = (app: Application) => {
   app.use("/v1/search", searchRouter);
   app.use("/v1/subscriptions", subscriptionRouter);
   app.use("/v1/maintenance", maintenanceRouter);
+  app.use("/v1/admin", adminRouter);
 
   // Must come before the error handler
   app.use((req: Request, res: Response) => {

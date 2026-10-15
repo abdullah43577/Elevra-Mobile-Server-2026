@@ -1,4 +1,4 @@
-import { BadRequestError, EmailNotVerifiedError, NotFoundError } from "../lib/errors";
+import { BadRequestError, EmailNotVerifiedError, ForbiddenError, NotFoundError, UnauthorizedError } from "../lib/errors";
 import { generateAccessToken, generateRefreshToken } from "../lib/generate-token";
 import { getEnv } from "../lib/get-env";
 import { isProForEveryone } from "../lib/entitlements";
@@ -145,6 +145,10 @@ export class AuthService {
 
       await this.userRepo.resetLoginAttempts(user.id);
 
+      if (user.account_status !== "ACTIVE") {
+        throw new ForbiddenError("This account has been suspended. Contact support if you think this is a mistake.");
+      }
+
       // Checked only after the password, so only someone holding the credentials can trigger this
       // mail; a wrong password still gets a flat "Invalid credentials".
       if (!user.has_validated_email) {
@@ -286,18 +290,22 @@ export class AuthService {
         if (!isMatch) throw new BadRequestError("Password Invalid");
       }
 
-      // Destroyed before the rows go: the publicIds live on those rows and are lost afterwards.
-      const publicIds = await this.voiceRecordingRepo.findPublicIdsByUser(userId);
-      if (publicIds.length) {
-        await this.cloudinaryService.destroyMany(publicIds, "auto");
-      }
-
-      await this.userRepo.deleteUser(userId);
-
-      return true;
+      return await this.removeAccount(userId);
     } catch (error) {
       throw error;
     }
+  }
+
+  async removeAccount(userId: string) {
+    // Destroyed before the rows go: the publicIds live on those rows and are lost afterwards.
+    const publicIds = await this.voiceRecordingRepo.findPublicIdsByUser(userId);
+    if (publicIds.length) {
+      await this.cloudinaryService.destroyMany(publicIds, "auto");
+    }
+
+    await this.userRepo.deleteUser(userId);
+
+    return true;
   }
 
   async getProfile(userId: string) {
@@ -373,6 +381,7 @@ export class AuthService {
     try {
       const user = await this.userRepo.findById(userId);
       if (!user) throw new NotFoundError("User not found");
+      if (user.account_status !== "ACTIVE") throw new UnauthorizedError("This account is no longer active.");
 
       const accessToken = generateAccessToken({ id: userId });
       const refreshToken = generateRefreshToken({ id: userId });

@@ -70,6 +70,11 @@ export class UserRepository {
     return prisma.user.findUnique({ where, ...(select && { select }) });
   }
 
+  async findProGrant(userId: string) {
+    const settings = await prisma.userSettings.findUnique({ where: { userId }, select: { proGrantedAt: true } });
+    return settings?.proGrantedAt ?? null;
+  }
+
   async deleteUser(id: string) {
     return prisma.user.delete({ where: { id } });
   }

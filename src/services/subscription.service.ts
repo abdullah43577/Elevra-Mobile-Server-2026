@@ -27,6 +27,7 @@ export class SubscriptionService {
     // second entitlement is ever added this becomes silently wrong; match on its `entl...` id then.
     const pro = entitlements[0];
     const isActive = entitlements.length > 0;
+    const hasGrant = !!(await this.userRepo.findProGrant(userId));
 
     // null is a real state (a lifetime or open-ended promotional grant), not a missing value.
     const expiresAt = pro?.expires_at ? new Date(pro.expires_at) : null;
@@ -40,10 +41,10 @@ export class SubscriptionService {
     });
 
     await this.userRepo.upsertUserSettings(userId, {
-      subscriptionTier: isActive ? "PRO" : "FREE",
+      subscriptionTier: isActive || hasGrant ? "PRO" : "FREE",
     });
 
-    return { tier: isActive ? "PRO" : "FREE", isActive, expiresAt, lastSyncedAt, isFresh: true };
+    return { tier: isActive || hasGrant ? "PRO" : "FREE", isActive, expiresAt, lastSyncedAt, isFresh: true };
   }
 
   // Falls back to the stored copy rather than failing: the client calls this on every launch.
@@ -59,9 +60,10 @@ export class SubscriptionService {
 
   private async readStored(userId: string): Promise<SubscriptionState> {
     const stored = await this.subscriptionRepo.findByUser(userId);
+    const hasGrant = !!(await this.userRepo.findProGrant(userId));
 
     return {
-      tier: stored?.isActive ? "PRO" : "FREE",
+      tier: stored?.isActive || hasGrant ? "PRO" : "FREE",
       isActive: stored?.isActive ?? false,
       expiresAt: stored?.expiresAt ?? null,
       lastSyncedAt: stored?.lastSyncedAt ?? null,

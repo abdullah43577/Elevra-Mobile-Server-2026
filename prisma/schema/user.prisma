@@ -10,6 +10,11 @@ enum AccountStatus {
 }
 
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
 enum Gender {
   MALE
   FEMALE
@@ -33,6 +38,7 @@ model User {
   isLocked              Boolean            @default(false)
   lastLogin             DateTime           @default(now())
   account_status        AccountStatus      @default(ACTIVE)
+  role                  UserRole           @default(USER)
   has_onboarded Boolean @default(false)
   deviceToken   String?
   deviceType    String?
